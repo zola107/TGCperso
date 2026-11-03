@@ -1,0 +1,1751 @@
+{
+ "_aide": "Franchises récupérées sur leur wiki de fans (Fandom). niveau : S = 40 persos, A = 25, B = 15, C = 8 (ou « quota »). « cats » : catégories des personnages (sinon détection automatique de « Characters »). « annee » : année du premier jeu. « jeux » : année de sortie par jeu, reconnue dans les catégories du personnage.",
+ "franchises": [
+  {
+   "nom": "Super Mario",
+   "wiki": "mario",
+   "niveau": "S",
+   "annee": 1981,
+   "tags": [
+    "plateforme",
+    "nintendo"
+   ],
+   "jeux": {
+    "Super Mario Bros.": 1985,
+    "Super Mario 64": 1996,
+    "Super Mario Sunshine": 2002,
+    "Super Mario Galaxy": 2007,
+    "Super Mario Odyssey": 2017,
+    "Paper Mario": 2000,
+    "Mario Kart": 1992,
+    "Luigi's Mansion": 2001,
+    "Super Mario RPG": 1996,
+    "Mario & Luigi": 2003,
+    "Yoshi's Island": 1995
+   }
+  },
+  {
+   "nom": "The Legend of Zelda",
+   "wiki": "zelda",
+   "niveau": "S",
+   "annee": 1986,
+   "tags": [
+    "solo",
+    "nintendo"
+   ],
+   "jeux": {
+    "Ocarina of Time": 1998,
+    "Majora's Mask": 2000,
+    "Wind Waker": 2002,
+    "Twilight Princess": 2006,
+    "Skyward Sword": 2011,
+    "Breath of the Wild": 2017,
+    "Tears of the Kingdom": 2023,
+    "A Link to the Past": 1991,
+    "Link's Awakening": 1993,
+    "Minish Cap": 2004,
+    "Spirit Tracks": 2009,
+    "Phantom Hourglass": 2007
+   }
+  },
+  {
+   "nom": "Sonic the Hedgehog",
+   "wiki": "sonic",
+   "niveau": "S",
+   "annee": 1991,
+   "tags": [
+    "plateforme"
+   ]
+  },
+  {
+   "nom": "Final Fantasy",
+   "wiki": "finalfantasy",
+   "niveau": "S",
+   "annee": 1987,
+   "tags": [
+    "rpg",
+    "solo"
+   ],
+   "cats": [
+    "Playable characters",
+    "Villains",
+    "Antagonists"
+   ],
+   "jeux": {
+    "Final Fantasy VII": 1997,
+    "Final Fantasy VIII": 1999,
+    "Final Fantasy IX": 2000,
+    "Final Fantasy X": 2001,
+    "Final Fantasy XII": 2006,
+    "Final Fantasy XIII": 2009,
+    "Final Fantasy XV": 2016,
+    "Final Fantasy XVI": 2023,
+    "Final Fantasy XIV": 2010,
+    "Final Fantasy VI": 1994,
+    "Final Fantasy IV": 1991,
+    "Final Fantasy V": 1992,
+    "Final Fantasy Tactics": 1997
+   }
+  },
+  {
+   "nom": "Resident Evil",
+   "wiki": "residentevil",
+   "niveau": "S",
+   "annee": 1996,
+   "tags": [
+    "horreur",
+    "solo"
+   ],
+   "jeux": {
+    "Resident Evil 2": 1998,
+    "Resident Evil 3": 1999,
+    "Resident Evil 4": 2005,
+    "Resident Evil 5": 2009,
+    "Resident Evil 6": 2012,
+    "Resident Evil 7": 2017,
+    "Village": 2021,
+    "Code: Veronica": 2000,
+    "Revelations": 2012
+   }
+  },
+  {
+   "nom": "Grand Theft Auto",
+   "wiki": "gta",
+   "niveau": "S",
+   "annee": 1997,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Protagonists",
+    "Main Characters",
+    "Characters in GTA V",
+    "Characters in GTA San Andreas",
+    "Characters in GTA IV",
+    "Characters in GTA Vice City",
+    "Characters in GTA III"
+   ],
+   "jeux": {
+    "GTA V": [
+     "Grand Theft Auto V",
+     2013
+    ],
+    "GTA San Andreas": [
+     "GTA: San Andreas",
+     2004
+    ],
+    "GTA IV": [
+     "Grand Theft Auto IV",
+     2008
+    ],
+    "GTA Vice City": [
+     "GTA: Vice City",
+     2002
+    ],
+    "GTA III": [
+     "Grand Theft Auto III",
+     2001
+    ],
+    "GTA Liberty City Stories": [
+     "GTA: Liberty City Stories",
+     2005
+    ],
+    "GTA Vice City Stories": [
+     "GTA: Vice City Stories",
+     2006
+    ],
+    "GTA Chinatown Wars": [
+     "GTA: Chinatown Wars",
+     2009
+    ]
+   }
+  },
+  {
+   "nom": "Red Dead Redemption",
+   "wiki": "reddead",
+   "niveau": "S",
+   "annee": 2004,
+   "tags": [
+    "solo"
+   ],
+   "jeux": {
+    "Redemption 2": [
+     "Red Dead Redemption 2",
+     2018
+    ],
+    "Redemption": [
+     "Red Dead Redemption",
+     2010
+    ],
+    "Revolver": [
+     "Red Dead Revolver",
+     2004
+    ]
+   },
+   "cats": [
+    "Characters in Redemption 2",
+    "Characters in Redemption",
+    "Playable characters"
+   ]
+  },
+  {
+   "nom": "Five Nights at Freddy's",
+   "wiki": "freddy-fazbears-pizza",
+   "niveau": "S",
+   "annee": 2014,
+   "tags": [
+    "horreur"
+   ],
+   "cats": [
+    "Core FNaF Series: Bots",
+    "Five Nights at Freddy's: Classic Animatronics",
+    "Core FNaF Series: Characters",
+    "Antagonists",
+    "Protagonists"
+   ],
+   "jeux": {
+    "FNaF1": [
+     "Five Nights at Freddy's",
+     2014
+    ],
+    "FNaF2": [
+     "Five Nights at Freddy's 2",
+     2014
+    ],
+    "FNaF3": [
+     "Five Nights at Freddy's 3",
+     2015
+    ],
+    "FNaF4": [
+     "Five Nights at Freddy's 4",
+     2015
+    ],
+    "SL": [
+     "Sister Location",
+     2016
+    ],
+    "FFPS": [
+     "Freddy Fazbear's Pizzeria Simulator",
+     2017
+    ],
+    "UCN": [
+     "Ultimate Custom Night",
+     2018
+    ],
+    "FNaF HW2": [
+     "Help Wanted 2",
+     2023
+    ],
+    "FNaF HW": [
+     "Help Wanted",
+     2019
+    ],
+    "Security Breach": [
+     "Security Breach",
+     2021
+    ],
+    "FNaF SD": [
+     "Special Delivery",
+     2019
+    ],
+    "FNaF SotM": [
+     "Security Breach: Ruin",
+     2023
+    ]
+   }
+  },
+  {
+   "nom": "Elden Ring",
+   "wiki": "eldenring",
+   "niveau": "S",
+   "annee": 2022,
+   "tags": [
+    "rpg",
+    "solo"
+   ],
+   "cats": [
+    "Characters",
+    "Bosses"
+   ]
+  },
+  {
+   "nom": "Mortal Kombat",
+   "wiki": "mortalkombat",
+   "niveau": "S",
+   "annee": 1992,
+   "tags": [
+    "combat"
+   ],
+   "cats": [
+    "Playable Characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Street Fighter",
+   "wiki": "streetfighter",
+   "niveau": "S",
+   "annee": 1987,
+   "tags": [
+    "combat"
+   ],
+   "cats": [
+    "Playable characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Tekken",
+   "wiki": "tekken",
+   "niveau": "S",
+   "annee": 1994,
+   "tags": [
+    "combat",
+    "playstation"
+   ],
+   "cats": [
+    "Playable Characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "League of Legends",
+   "wiki": "leagueoflegends",
+   "niveau": "S",
+   "annee": 2009,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Playable characters",
+    "Characters in League of Legends"
+   ]
+  },
+  {
+   "nom": "Overwatch",
+   "wiki": "overwatch",
+   "niveau": "S",
+   "annee": 2016,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Heroes"
+   ]
+  },
+  {
+   "nom": "Fortnite",
+   "wiki": "fortnite",
+   "niveau": "S",
+   "annee": 2017,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Legendary Outfits",
+    "Epic Outfits",
+    "Battle Pass Outfits",
+    "Characters",
+    "Outfits"
+   ]
+  },
+  {
+   "nom": "Genshin Impact",
+   "wiki": "genshin-impact",
+   "niveau": "S",
+   "annee": 2020,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Playable Characters"
+   ]
+  },
+  {
+   "nom": "Metal Gear",
+   "wiki": "metalgear",
+   "niveau": "S",
+   "annee": 1987,
+   "tags": [
+    "solo",
+    "playstation"
+   ],
+   "cats": [
+    "Characters",
+    "Bosses"
+   ]
+  },
+  {
+   "nom": "Persona",
+   "wiki": "megamitensei",
+   "niveau": "A",
+   "annee": 1996,
+   "tags": [
+    "rpg",
+    "playstation"
+   ],
+   "cats": [
+    "Persona 5 Characters",
+    "Persona 4 Characters",
+    "Persona 3 Characters"
+   ]
+  },
+  {
+   "nom": "Halo",
+   "wiki": "halo",
+   "niveau": "A",
+   "annee": 2001,
+   "tags": [
+    "multi",
+    "xbox"
+   ],
+   "cats": [
+    "Characters",
+    "Main characters"
+   ]
+  },
+  {
+   "nom": "God of War",
+   "wiki": "godofwar",
+   "niveau": "S",
+   "annee": 2005,
+   "tags": [
+    "solo",
+    "playstation"
+   ],
+   "cats": [
+    "Characters",
+    "Bosses"
+   ]
+  },
+  {
+   "nom": "The Witcher",
+   "wiki": "witcher",
+   "niveau": "A",
+   "annee": 2007,
+   "tags": [
+    "rpg",
+    "solo"
+   ],
+   "cats": [
+    "The Witcher 3 characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Assassin's Creed",
+   "wiki": "assassinscreed",
+   "niveau": "A",
+   "annee": 2007,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Assassins",
+    "Templars",
+    "Protagonists"
+   ]
+  },
+  {
+   "nom": "Dark Souls",
+   "wiki": "darksouls",
+   "niveau": "A",
+   "annee": 2011,
+   "tags": [
+    "rpg",
+    "solo"
+   ],
+   "cats": [
+    "Bosses",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Fire Emblem",
+   "wiki": "fireemblem",
+   "niveau": "A",
+   "annee": 1990,
+   "tags": [
+    "rpg",
+    "nintendo"
+   ],
+   "cats": [
+    "Playable Characters"
+   ]
+  },
+  {
+   "nom": "Dead by Daylight",
+   "wiki": "deadbydaylight",
+   "niveau": "A",
+   "annee": 2016,
+   "tags": [
+    "horreur",
+    "multi"
+   ],
+   "cats": [
+    "Killers",
+    "Survivors"
+   ]
+  },
+  {
+   "nom": "Kingdom Hearts",
+   "wiki": "kingdomhearts",
+   "niveau": "B",
+   "annee": 2002,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Original characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Kirby",
+   "wiki": "kirby",
+   "niveau": "A",
+   "annee": 1992,
+   "tags": [
+    "plateforme",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Metroid",
+   "wiki": "metroid",
+   "niveau": "B",
+   "annee": 1986,
+   "tags": [
+    "solo",
+    "nintendo"
+   ],
+   "cats": [
+    "Characters",
+    "Bosses"
+   ]
+  },
+  {
+   "nom": "Donkey Kong",
+   "wiki": "donkeykong",
+   "niveau": "B",
+   "annee": 1981,
+   "tags": [
+    "plateforme",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Animal Crossing",
+   "wiki": "animalcrossing",
+   "niveau": "B",
+   "annee": 2001,
+   "tags": [
+    "nintendo"
+   ],
+   "cats": [
+    "Special characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Splatoon",
+   "wiki": "splatoon",
+   "niveau": "B",
+   "annee": 2015,
+   "tags": [
+    "multi",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Pikmin",
+   "wiki": "pikmin",
+   "niveau": "C",
+   "annee": 2001,
+   "tags": [
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Star Fox",
+   "wiki": "starfox",
+   "niveau": "C",
+   "annee": 1993,
+   "tags": [
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Crash Bandicoot",
+   "wiki": "crashbandicoot",
+   "niveau": "A",
+   "annee": 1996,
+   "tags": [
+    "plateforme",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Spyro the Dragon",
+   "wiki": "spyro",
+   "niveau": "B",
+   "annee": 1998,
+   "tags": [
+    "plateforme",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Ratchet & Clank",
+   "wiki": "ratchetandclank",
+   "niveau": "B",
+   "annee": 2002,
+   "tags": [
+    "plateforme",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Jak and Daxter",
+   "wiki": "jakanddaxter",
+   "niveau": "B",
+   "annee": 2001,
+   "tags": [
+    "plateforme",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Sly Cooper",
+   "wiki": "slycooper",
+   "niveau": "C",
+   "annee": 2002,
+   "tags": [
+    "plateforme",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Tomb Raider",
+   "wiki": "tombraider",
+   "niveau": "B",
+   "annee": 1996,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Uncharted",
+   "wiki": "uncharted",
+   "niveau": "B",
+   "annee": 2007,
+   "tags": [
+    "solo",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "The Last of Us",
+   "wiki": "thelastofus",
+   "niveau": "A",
+   "annee": 2013,
+   "tags": [
+    "solo",
+    "horreur",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Horizon",
+   "wiki": "horizon",
+   "niveau": "B",
+   "annee": 2017,
+   "tags": [
+    "solo",
+    "rpg",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Hitman",
+   "wiki": "hitman",
+   "niveau": "B",
+   "annee": 2000,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Targets",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Half-Life",
+   "wiki": "half-life",
+   "niveau": "B",
+   "annee": 1998,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Doom",
+   "wiki": "doom",
+   "niveau": "C",
+   "annee": 1993,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Monsters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Far Cry",
+   "wiki": "farcry",
+   "niveau": "B",
+   "annee": 2004,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Antagonists",
+    "Protagonists",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Mass Effect",
+   "wiki": "masseffect",
+   "niveau": "A",
+   "annee": 2007,
+   "tags": [
+    "rpg",
+    "xbox"
+   ],
+   "cats": [
+    "Squad members",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Dragon Age",
+   "wiki": "dragonage",
+   "niveau": "B",
+   "annee": 2009,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Companions",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Fallout",
+   "wiki": "fallout",
+   "niveau": "B",
+   "annee": 1997,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Companions",
+    "Fallout 4 companions",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "The Elder Scrolls",
+   "wiki": "elderscrolls",
+   "niveau": "B",
+   "annee": 1994,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Skyrim: Followers",
+    "Daedric Princes",
+    "Skyrim: Characters"
+   ]
+  },
+  {
+   "nom": "BioShock",
+   "wiki": "bioshock",
+   "niveau": "B",
+   "annee": 2007,
+   "tags": [
+    "solo",
+    "horreur"
+   ]
+  },
+  {
+   "nom": "Borderlands",
+   "wiki": "borderlands",
+   "niveau": "B",
+   "annee": 2009,
+   "tags": [
+    "multi",
+    "rpg"
+   ],
+   "cats": [
+    "Playable characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Silent Hill",
+   "wiki": "silenthill",
+   "niveau": "A",
+   "annee": 1999,
+   "tags": [
+    "horreur",
+    "solo"
+   ],
+   "cats": [
+    "Monsters",
+    "Characters",
+    "Bosses"
+   ]
+  },
+  {
+   "nom": "Bloodborne",
+   "wiki": "bloodborne",
+   "niveau": "B",
+   "annee": 2015,
+   "tags": [
+    "rpg",
+    "horreur",
+    "playstation"
+   ],
+   "cats": [
+    "Bosses",
+    "NPCs",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Sekiro",
+   "wiki": "sekiro-shadows-die-twice",
+   "niveau": "C",
+   "annee": 2019,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Bosses",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Devil May Cry",
+   "wiki": "devilmaycry",
+   "niveau": "B",
+   "annee": 2001,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Bayonetta",
+   "wiki": "bayonetta",
+   "niveau": "C",
+   "annee": 2009,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "NieR",
+   "wiki": "nier",
+   "niveau": "B",
+   "annee": 2010,
+   "tags": [
+    "rpg"
+   ]
+  },
+  {
+   "nom": "Yakuza",
+   "wiki": "yakuza",
+   "niveau": "B",
+   "annee": 2005,
+   "tags": [
+    "solo",
+    "playstation"
+   ],
+   "cats": [
+    "Main characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Danganronpa",
+   "wiki": "danganronpa",
+   "niveau": "B",
+   "annee": 2010,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Ace Attorney",
+   "wiki": "aceattorney",
+   "niveau": "B",
+   "annee": 2001,
+   "tags": [
+    "solo",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Professor Layton",
+   "wiki": "layton",
+   "niveau": "C",
+   "annee": 2007,
+   "tags": [
+    "solo",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Castlevania",
+   "wiki": "castlevania",
+   "niveau": "B",
+   "annee": 1986,
+   "tags": [
+    "plateforme"
+   ],
+   "cats": [
+    "Protagonists",
+    "Bosses",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Mega Man",
+   "wiki": "megaman",
+   "niveau": "B",
+   "annee": 1987,
+   "tags": [
+    "plateforme"
+   ],
+   "cats": [
+    "Robot Masters",
+    "Mega Man series characters",
+    "Mega Man X series characters",
+    "Mega Man Battle Network characters"
+   ]
+  },
+  {
+   "nom": "Dragon Quest",
+   "wiki": "dragonquest",
+   "niveau": "B",
+   "annee": 1986,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Heroes",
+    "Party members",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Honkai: Star Rail",
+   "wiki": "honkai-star-rail",
+   "niveau": "B",
+   "annee": 2023,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Playable Characters"
+   ]
+  },
+  {
+   "nom": "Monster Hunter",
+   "wiki": "monsterhunter",
+   "niveau": "B",
+   "annee": 2004,
+   "tags": [
+    "multi",
+    "rpg"
+   ],
+   "cats": [
+    "Flagship Monsters",
+    "Elder Dragons",
+    "Monsters"
+   ]
+  },
+  {
+   "nom": "The King of Fighters",
+   "wiki": "snk",
+   "niveau": "B",
+   "annee": 1994,
+   "tags": [
+    "combat"
+   ],
+   "cats": [
+    "The King of Fighters Characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Guilty Gear",
+   "wiki": "guiltygear",
+   "niveau": "C",
+   "annee": 1998,
+   "tags": [
+    "combat"
+   ]
+  },
+  {
+   "nom": "Dead or Alive",
+   "wiki": "deadoralive",
+   "niveau": "C",
+   "annee": 1996,
+   "tags": [
+    "combat"
+   ]
+  },
+  {
+   "nom": "Soulcalibur",
+   "wiki": "soulcalibur",
+   "niveau": "C",
+   "annee": 1995,
+   "tags": [
+    "combat"
+   ]
+  },
+  {
+   "nom": "Cyberpunk",
+   "wiki": "cyberpunk",
+   "niveau": "B",
+   "annee": 2020,
+   "tags": [
+    "rpg",
+    "solo"
+   ],
+   "cats": [
+    "Cyberpunk 2077 Characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Undertale",
+   "wiki": "undertale",
+   "niveau": "B",
+   "annee": 2015,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Main characters",
+    "Boss"
+   ]
+  },
+  {
+   "nom": "Deltarune",
+   "wiki": "deltarune",
+   "niveau": "C",
+   "annee": 2018,
+   "tags": [
+    "rpg"
+   ]
+  },
+  {
+   "nom": "Hollow Knight",
+   "wiki": "hollowknight",
+   "niveau": "B",
+   "annee": 2017,
+   "tags": [
+    "plateforme"
+   ],
+   "cats": [
+    "NPCs (Hollow Knight)",
+    "Bosses (Hollow Knight)",
+    "Bosses (Silksong)"
+   ]
+  },
+  {
+   "nom": "Cuphead",
+   "wiki": "cuphead",
+   "niveau": "B",
+   "annee": 2017,
+   "tags": [
+    "plateforme"
+   ],
+   "cats": [
+    "Bosses",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Hades",
+   "wiki": "hades",
+   "niveau": "B",
+   "annee": 2020,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Terraria",
+   "wiki": "terraria",
+   "niveau": "C",
+   "annee": 2011,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Boss NPCs",
+    "Town NPCs"
+   ]
+  },
+  {
+   "nom": "Minecraft",
+   "wiki": "minecraft",
+   "niveau": "C",
+   "annee": 2009,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Mobs",
+    "Hostile mobs"
+   ]
+  },
+  {
+   "nom": "Apex Legends",
+   "wiki": "apexlegends",
+   "niveau": "B",
+   "annee": 2019,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Legends"
+   ]
+  },
+  {
+   "nom": "Valorant",
+   "wiki": "valorant",
+   "niveau": "B",
+   "annee": 2020,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Agents"
+   ]
+  },
+  {
+   "nom": "Team Fortress",
+   "wiki": "teamfortress",
+   "niveau": "C",
+   "annee": 2007,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Classes",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Left 4 Dead",
+   "wiki": "left4dead",
+   "niveau": "C",
+   "annee": 2008,
+   "tags": [
+    "multi",
+    "horreur"
+   ],
+   "cats": [
+    "Survivors",
+    "Special Infected"
+   ]
+  },
+  {
+   "nom": "Gears of War",
+   "wiki": "gearsofwar",
+   "niveau": "B",
+   "annee": 2006,
+   "tags": [
+    "multi",
+    "xbox"
+   ]
+  },
+  {
+   "nom": "Call of Duty",
+   "wiki": "callofduty",
+   "niveau": "B",
+   "annee": 2003,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Main characters",
+    "Playable characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Diablo",
+   "wiki": "diablo",
+   "niveau": "B",
+   "annee": 1996,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Prime Evils",
+    "Bosses",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "StarCraft",
+   "wiki": "starcraft",
+   "niveau": "C",
+   "annee": 1998,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Major characters",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Destiny",
+   "wiki": "destiny",
+   "niveau": "C",
+   "annee": 2014,
+   "tags": [
+    "multi"
+   ]
+  },
+  {
+   "nom": "Warframe",
+   "wiki": "warframe",
+   "niveau": "C",
+   "annee": 2013,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Characters",
+    "Warframes"
+   ]
+  },
+  {
+   "nom": "Dota 2",
+   "wiki": "dota2",
+   "niveau": "B",
+   "annee": 2013,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Heroes"
+   ]
+  },
+  {
+   "nom": "Clash Royale",
+   "wiki": "clashroyale",
+   "niveau": "C",
+   "annee": 2016,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Legendary Cards",
+    "Champions",
+    "Epic Cards"
+   ]
+  },
+  {
+   "nom": "Clash of Clans",
+   "wiki": "clashofclans",
+   "niveau": "C",
+   "annee": 2012,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Heroes",
+    "Troops"
+   ]
+  },
+  {
+   "nom": "Brawl Stars",
+   "wiki": "brawlstars",
+   "niveau": "B",
+   "annee": 2018,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Brawlers"
+   ]
+  },
+  {
+   "nom": "Angry Birds",
+   "wiki": "angrybirds",
+   "niveau": "C",
+   "annee": 2009,
+   "tags": [
+    "plateforme"
+   ],
+   "cats": [
+    "Birds",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Plants vs. Zombies",
+   "wiki": "plantsvszombies",
+   "niveau": "C",
+   "annee": 2009,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Recurring characters",
+    "Playable characters"
+   ]
+  },
+  {
+   "nom": "Among Us",
+   "wiki": "among-us",
+   "niveau": "C",
+   "annee": 2018,
+   "tags": [
+    "multi"
+   ],
+   "quota": 4,
+   "cats": [
+    "Series Characters"
+   ]
+  },
+  {
+   "nom": "Poppy Playtime",
+   "wiki": "poppy-playtime",
+   "niveau": "B",
+   "annee": 2021,
+   "tags": [
+    "horreur"
+   ]
+  },
+  {
+   "nom": "Bendy",
+   "wiki": "bendy",
+   "niveau": "C",
+   "annee": 2017,
+   "tags": [
+    "horreur"
+   ]
+  },
+  {
+   "nom": "Hello Neighbor",
+   "wiki": "hello-neighbor",
+   "niveau": "C",
+   "annee": 2017,
+   "tags": [
+    "horreur"
+   ],
+   "quota": 6
+  },
+  {
+   "nom": "Outlast",
+   "wiki": "outlast",
+   "niveau": "C",
+   "annee": 2013,
+   "tags": [
+    "horreur"
+   ]
+  },
+  {
+   "nom": "Dead Space",
+   "wiki": "deadspace",
+   "niveau": "C",
+   "annee": 2008,
+   "tags": [
+    "horreur"
+   ]
+  },
+  {
+   "nom": "Alan Wake",
+   "wiki": "alanwake",
+   "niveau": "C",
+   "annee": 2010,
+   "tags": [
+    "horreur",
+    "xbox"
+   ]
+  },
+  {
+   "nom": "Control",
+   "wiki": "control",
+   "niveau": "C",
+   "annee": 2019,
+   "tags": [
+    "solo"
+   ],
+   "quota": 6
+  },
+  {
+   "nom": "Life is Strange",
+   "wiki": "life-is-strange",
+   "niveau": "C",
+   "annee": 2015,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Detroit: Become Human",
+   "wiki": "detroit-become-human",
+   "niveau": "C",
+   "annee": 2018,
+   "tags": [
+    "solo",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Death Stranding",
+   "wiki": "deathstranding",
+   "niveau": "C",
+   "annee": 2019,
+   "tags": [
+    "solo",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "Ghost of Tsushima",
+   "wiki": "ghostfranchise",
+   "niveau": "C",
+   "annee": 2020,
+   "tags": [
+    "solo",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "inFAMOUS",
+   "wiki": "infamous",
+   "niveau": "C",
+   "annee": 2009,
+   "tags": [
+    "solo",
+    "playstation"
+   ]
+  },
+  {
+   "nom": "EarthBound",
+   "wiki": "earthbound",
+   "niveau": "C",
+   "annee": 1989,
+   "tags": [
+    "rpg",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Banjo-Kazooie",
+   "wiki": "banjokazooie",
+   "niveau": "C",
+   "annee": 1998,
+   "tags": [
+    "plateforme"
+   ]
+  },
+  {
+   "nom": "Baldur's Gate",
+   "wiki": "baldursgate",
+   "niveau": "C",
+   "annee": 1998,
+   "tags": [
+    "rpg"
+   ],
+   "cats": [
+    "Baldur's Gate 3 companions",
+    "Companions",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Payday",
+   "wiki": "payday",
+   "niveau": "C",
+   "annee": 2011,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Characters (Payday 2)",
+    "Characters"
+   ]
+  },
+  {
+   "nom": "Rainbow Six",
+   "wiki": "rainbowsix",
+   "niveau": "C",
+   "annee": 1998,
+   "tags": [
+    "multi"
+   ],
+   "cats": [
+    "Rainbow Operators",
+    "Characters of Tom Clancy's Rainbow Six Siege"
+   ]
+  },
+  {
+   "nom": "Max Payne",
+   "wiki": "maxpayne",
+   "niveau": "C",
+   "annee": 2001,
+   "tags": [
+    "solo"
+   ],
+   "quota": 6
+  },
+  {
+   "nom": "Splinter Cell",
+   "wiki": "splintercell",
+   "niveau": "C",
+   "annee": 2002,
+   "tags": [
+    "solo"
+   ],
+   "quota": 6
+  },
+  {
+   "nom": "Chrono",
+   "wiki": "chrono",
+   "niveau": "C",
+   "annee": 1995,
+   "tags": [
+    "rpg"
+   ]
+  },
+  {
+   "nom": "Stardew Valley",
+   "wiki": "stardewvalley",
+   "niveau": "C",
+   "annee": 2016,
+   "tags": [
+    "solo"
+   ],
+   "quota": 12,
+   "cats": [
+    "Villagers"
+   ]
+  },
+  {
+   "nom": "Shovel Knight",
+   "wiki": "shovelknight",
+   "niveau": "C",
+   "annee": 2014,
+   "tags": [
+    "plateforme"
+   ]
+  },
+  {
+   "nom": "Hotline Miami",
+   "wiki": "hotlinemiami",
+   "niveau": "C",
+   "annee": 2012,
+   "tags": [
+    "solo"
+   ],
+   "quota": 5
+  },
+  {
+   "nom": "LittleBigPlanet",
+   "wiki": "littlebigplanet",
+   "niveau": "C",
+   "annee": 2008,
+   "tags": [
+    "plateforme",
+    "playstation"
+   ],
+   "quota": 5
+  },
+  {
+   "nom": "Pac-Man",
+   "wiki": "pacman",
+   "niveau": "C",
+   "annee": 1980,
+   "tags": [
+    "plateforme"
+   ],
+   "quota": 8
+  },
+  {
+   "nom": "Metal Slug",
+   "wiki": "metalslug",
+   "niveau": "C",
+   "annee": 1996,
+   "tags": [
+    "plateforme"
+   ],
+   "quota": 6
+  },
+  {
+   "nom": "Wario",
+   "wiki": "wario",
+   "niveau": "C",
+   "annee": 1992,
+   "tags": [
+    "plateforme",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "The Sims",
+   "wiki": "sims",
+   "niveau": "C",
+   "annee": 2000,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Playable Sims"
+   ],
+   "quota": 8
+  },
+  {
+   "nom": "Bully",
+   "wiki": "bully",
+   "niveau": "C",
+   "annee": 2006,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Saints Row",
+   "wiki": "saintsrow",
+   "niveau": "C",
+   "annee": 2006,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Mafia",
+   "wiki": "mafiagame",
+   "niveau": "C",
+   "annee": 2002,
+   "tags": [
+    "solo"
+   ],
+   "cats": [
+    "Characters in Mafia",
+    "Characters in Mafia: Definitive Edition"
+   ]
+  },
+  {
+   "nom": "Deus Ex",
+   "wiki": "deusex",
+   "niveau": "C",
+   "annee": 2000,
+   "tags": [
+    "rpg",
+    "solo"
+   ]
+  },
+  {
+   "nom": "Dishonored",
+   "wiki": "dishonored",
+   "niveau": "C",
+   "annee": 2012,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Watch Dogs",
+   "wiki": "watchdogs",
+   "niveau": "C",
+   "annee": 2014,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Prince of Persia",
+   "wiki": "princeofpersia",
+   "niveau": "C",
+   "annee": 1989,
+   "tags": [
+    "plateforme"
+   ]
+  },
+  {
+   "nom": "Wolfenstein",
+   "wiki": "wolfenstein",
+   "niveau": "C",
+   "annee": 1981,
+   "tags": [
+    "solo"
+   ]
+  },
+  {
+   "nom": "Ori",
+   "wiki": "oriandtheblindforest",
+   "niveau": "C",
+   "annee": 2015,
+   "tags": [
+    "plateforme",
+    "xbox"
+   ],
+   "quota": 6
+  },
+  {
+   "nom": "Stray",
+   "wiki": "stray",
+   "niveau": "C",
+   "annee": 2022,
+   "tags": [
+    "solo"
+   ],
+   "quota": 4
+  },
+  {
+   "nom": "Paper Mario",
+   "wiki": "papermario",
+   "niveau": "C",
+   "annee": 2000,
+   "tags": [
+    "rpg",
+    "nintendo"
+   ]
+  },
+  {
+   "nom": "Sleeping Dogs",
+   "wiki": "sleepingdogs",
+   "niveau": "C",
+   "annee": 2012,
+   "tags": [
+    "solo"
+   ],
+   "quota": 5
+  },
+  {
+   "nom": "Just Cause",
+   "wiki": "justcause",
+   "niveau": "C",
+   "annee": 2006,
+   "tags": [
+    "solo"
+   ],
+   "quota": 5
+  }
+ ]
+}

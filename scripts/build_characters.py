@@ -31,6 +31,7 @@ LANGS = ["en", "fr", "es", "it", "de", "pt", "ru", "ja"]  # ordre de préférenc
 WIKI = {l: f"https://{l}.wikipedia.org/w/api.php" for l in LANGS}
 
 MAX_PAR_FRANCHISE = 40
+MIN_POKEMON, MAX_POKEMON = 150, 300  # assez pour la franchise, sans qu'elle prenne toute la place
 # Pokémon : pris dans PokéAPI (illustration officielle, nom et Pokédex en français) pour compléter le total
 POKEAPI = "https://pokeapi.co/api/v2"
 ARTWORK = "https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/{}.png"
@@ -195,7 +196,7 @@ def clean_franchise(f):
 # ---------------------------------------------------------------- programme principal
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--total", type=int, default=1000)
+    ap.add_argument("--total", type=int, default=3000)
     args = ap.parse_args()
 
     print("1. Candidats (Wikidata)…", file=sys.stderr)
@@ -228,7 +229,7 @@ def main():
 
     manual = json.loads(MANUAL.read_text()) if MANUAL.exists() else {}
     forced = {n.lower() for n in manual.get("inclure", [])}
-    excluded = {n.lower() for n in manual.get("exclure", [])}
+    excluded = {n.lower() for n in manual.get("exclure", []) + manual.get("exclure_wikipedia", [])}
     not_char = re.compile(r"\b(level|stage|sword|weapon|item|object|location|place|vehicle|organi[sz]ation|team|family|meme|creepypasta|folklore|urban legend|world|building|spacecraft|planet|city|book|film|song|album|track|course|circuit|map|arena|mode)\b")
 
     print("4. Filtrage et données…", file=sys.stderr)
@@ -343,34 +344,35 @@ def main():
     chars = [dict(c, image=img[c["qid"]][0], source=img[c["qid"]][1]) for c in chars if c["qid"] in img]
     print(f"   {len(chars)} avec image", file=sys.stderr)
 
-    # sélection : les plus connus d'abord, avec un plafond par franchise
+    # sélection Wikipédia : tous les persos de jeux avec image, avec un plafond par franchise
     chars.sort(key=lambda c: -c["links"])
     per, chosen = Counter(), []
     for c in chars:
         if c["franchise"] != "Pokémon" and (c["forced"] or per[c["franchise"]] < MAX_PAR_FRANCHISE):
             per[c["franchise"]] += 1
             chosen.append(c)
-        if len(chosen) == args.total:
-            break
-    print(f"   {len(chosen)} personnages de jeux (hors Pokémon)", file=sys.stderr)
+    print(f"   {len(chosen)} personnages Wikipédia (hors Pokémon)", file=sys.stderr)
 
     print("6. Résumés en français…", file=sys.stderr)
     ext = wiki_query("fr", [c["fr"] for c in chosen if c["fr"]], prop="extracts", exintro=1, explaintext=1, exsentences=2)
     for c in chosen:
-        if "resume" in c:
-            continue
         t = (ext.get(c["fr"] or "", {}).get("extract") or "").strip()
         t = re.sub(r"\s*\([^()]*\)", "", t)          # retire prononciations, dates, noms japonais
         t = re.sub(r"\s+", " ", t).strip()
         about = any(w.lower() in t.lower() for w in re.findall(r"\w{3,}", c["nom"] + " " + c["en_label"])[:3])
-        c["resume"] = t if 40 < len(t) < 420 and about else (
-            f"{c['nom']} est un personnage de {c['franchise']}, apparu pour la première fois dans {c['jeu']} en {c['annee']}."
-            + (f" {c['desc'][0].upper()}{c['desc'][1:]}." if c["desc"] else ""))
+        c["resume"] = t if 40 < len(t) < 420 and about else generated_resume(c)
 
-    print("6b. Pokémon (PokéAPI) pour compléter…", file=sys.stderr)
-    chosen += pokemon_fill(args.total - len(chosen), poke_links)
-    if len(chosen) < args.total:
-        print(f"   ! seulement {len(chosen)} personnages disponibles", file=sys.stderr)
+    print("6a. Wikis de fans (Fandom)…", file=sys.stderr)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import fandom  # importé ici : fandom.py réutilise les fonctions de ce fichier
+    banned = {n.lower() for n in manual.get("exclure", [])}
+    fan = [c for c in fandom.collect() if c["nom"].lower() not in banned]
+    chosen = dedupe(merge(chosen, fan))
+    print(f"   {len(chosen)} personnages après fusion", file=sys.stderr)
+
+    print("6b. Pokémon (PokéAPI)…", file=sys.stderr)
+    n_poke = max(MIN_POKEMON, min(MAX_POKEMON, args.total - len(chosen)))
+    chosen += pokemon_fill(n_poke, poke_links)
 
     # tags par franchise : un personnage sans tag hérite de ceux de sa franchise
     ftags = defaultdict(Counter)
@@ -381,14 +383,106 @@ def main():
             c["tags"] = [t for t, _ in ftags[c["franchise"]].most_common(2)]
 
     print("7. Raretés…", file=sys.stderr)
-    assign_rarities(chosen)
+    chosen = assign_rarities(chosen, args.total)
 
-    # numérotation : par franchise (la plus connue d'abord), comme un set de cartes
-    fame = defaultdict(int)
+    # numérotation : par franchise (la plus marquante d'abord), comme un set de cartes
+    best = defaultdict(float)
     for c in chosen:
-        fame[c["franchise"]] = max(fame[c["franchise"]], c["links"])
-    chosen.sort(key=lambda c: (-fame[c["franchise"]], c["franchise"], -c["links"]))
+        best[c["franchise"]] = max(best[c["franchise"]], c["score"])
+    chosen.sort(key=lambda c: (-best[c["franchise"]], c["franchise"], -c["score"]))
     write(chosen)
+
+
+def generated_resume(c):
+    """Résumé en français fabriqué à partir des données (quand aucun texte n'est disponible)."""
+    jeu = "" if c["jeu"] == c["franchise"] else f", apparu dans {c['jeu']}"
+    role = {"Boss": " C'est l'un des boss du jeu.", "Antagoniste": " C'est l'un des antagonistes de la série.",
+            "Protagoniste": " C'est l'un des personnages jouables ou principaux de la série.",
+            "Mascotte": " C'est la mascotte de la série."}.get(c["role"], "")
+    desc = f" {c['desc'][0].upper()}{c['desc'][1:]}." if c.get("desc") else ""
+    return f"{c['nom']} est un personnage de {c['franchise']}{jeu} ({c['annee']}).{role}{desc}"
+
+
+def dedupe(chars):
+    """Un même perso venu de deux sources (ou de deux wikis) n'apparaît qu'une fois.
+    Clés : nom et nom anglais sans parenthèses, et « prénom + nom » (Leon S. Kennedy = Leon Scott Kennedy).
+    Deux persos de même nom dans des franchises sans rapport restent séparés, sauf les icônes choisies par l'équipe."""
+    man = json.loads(MANUAL.read_text()) if MANUAL.exists() else {}
+    icons = {norm(k) for k in list(man.get("raretes", {})) + list(man.get("plancher", {}))}
+    words = lambda s: {w for w in re.findall(r"[a-z0-9]{3,}", slugify(s)) if w not in GENERIC}
+    def keys(c):
+        out = set()
+        for n in {c["nom"], c["en_label"]}:
+            base = re.sub(r"\s*\(.*?\)", "", n)
+            out.add(norm(base))
+            toks = re.findall(r"[a-z0-9]+", slugify(base))
+            if len(toks) >= 3:
+                out.add(toks[0] + "|" + toks[-1])
+        return {k for k in out if len(k) >= 3}
+    # on garde de préférence la fiche Wikipédia (nom et résumé en français), sinon la page de wiki la plus longue
+    chars = sorted(chars, key=lambda c: (c["kind"] == "fandom", -c.get("length", 0)))
+    kept, index = [], {}
+    for c in chars:
+        hit = None
+        for k in keys(c):
+            for o in index.get(k, []):
+                # même franchise, icône de l'équipe, ou nom complet identique en plusieurs mots (Cranky Kong, Mike Haggar…)
+                if words(o["franchise"]) & words(c["franchise"]) or k in icons or ("|" not in k and len(re.findall(r"[a-z0-9]+", slugify(c["nom"]))) >= 2 and norm(c["nom"]) == norm(o["nom"])):
+                    hit = o
+                    break
+            if hit:
+                break
+        if hit:
+            if DEBUG & {c["nom"], hit["nom"]}:
+                print(f"   [debug] doublon : « {c['nom']} » ({c['franchise']}) fusionné dans « {hit['nom']} » ({hit['franchise']})", file=sys.stderr)
+            hit["length"] = max(hit.get("length", 0), c.get("length", 0))
+            continue
+        kept.append(c)
+        for k in keys(c):
+            index.setdefault(k, []).append(c)
+    print(f"   doublons retirés : {len(chars) - len(kept)}", file=sys.stderr)
+    return kept
+
+
+def merge(wiki_chars, fan):
+    """Fusionne Wikipédia et les wikis de fans. Un même perso garde sa fiche Wikipédia (nom et résumé
+    en français) et prend l'importance mesurée sur le wiki de fans."""
+    import fandom
+    conf = {f["nom"]: f for f in json.loads(fandom.CONF.read_text())["franchises"]}
+    words = lambda s: {w for w in re.findall(r"[a-z0-9]{3,}", slugify(s)) if w not in GENERIC and w != "the"}
+    same_fr = lambda a, b: norm(a) in norm(b) or norm(b) in norm(a)
+    def same_char(x, c):
+        nx = norm(x["nom"])
+        return any(len(n) >= 4 and (nx == n or nx.startswith(n) or n.startswith(nx)) for n in (norm(c["nom"]), norm(c["en_label"])))
+
+    # doublons entre wikis de fans (Mario dans Super Mario et dans Paper Mario…) : on garde le premier
+    out, seen = [], {}
+    for x in fan:
+        k = norm(x["nom"])
+        if k in seen and words(seen[k]) & words(x["franchise"]):
+            continue
+        seen.setdefault(k, x["franchise"])
+        x["resume"] = generated_resume(x)
+        out.append(x)
+    by_fr = defaultdict(list)
+    for x in out:
+        by_fr[x["franchise"]].append(x)
+    for c in wiki_chars:
+        group = next((g for g in conf if same_fr(g, c["franchise"])), None)
+        if group:
+            c["franchise"], c["niveau"] = group, conf[group]["niveau"]
+            twin = next((x for x in by_fr[group] if same_char(x, c)), None)
+            if twin:
+                # même perso : nom et résumé français de Wikipédia, mais le rendu officiel du wiki de fans
+                c["length"], c["boss"], c["image"], c["source"] = twin["length"], twin["boss"], twin["image"], twin["source"]
+                if c["role"] == "Personnage":
+                    c["role"] = twin["role"]
+                out.remove(twin)
+                by_fr[group].remove(twin)
+        else:
+            c["niveau"] = "A" if c["links"] >= 30 else "B" if c["links"] >= 12 else "C"
+        out.append(c)
+    return out
 
 
 def norm(s):
@@ -434,35 +528,53 @@ def pokemon_fill(n, links):
     return out
 
 
-def assign_rarities(chars):
-    """Score sur 100 (grille des règles), puis rareté selon la répartition cible."""
-    top = max(c["links"] for c in chars)
-    fam_rank = defaultdict(list)
+TIER = {"S": 1.0, "A": .86, "B": .74, "C": .62}
+
+
+def assign_rarities(chars, total):
+    """Score « marquant » sur 100, puis raretés selon la répartition cible.
+    - dans chaque franchise, les persos sont classés par importance (longueur de leur page de wiki,
+      notoriété Wikipédia) ; le premier d'une grosse franchise vaut ~100, le dernier ~35
+    - bonus : notoriété mondiale (nombre de Wikipédias), boss / antagoniste / héros
+    - choix de l'équipe (scripts/rarete_manuelle.json) : « raretes » imposées (dont toutes les Spectaculaires),
+      « plancher » = rareté minimum pour les persos marquants (Arthur Morgan, Freddy, Malenia…)
+    """
+    groups = defaultdict(list)
     for c in chars:
-        fam_rank[c["franchise"]].append(c)
-    for lst in fam_rank.values():
-        lst.sort(key=lambda c: -c["links"])
-    year = date.today().year
+        c.setdefault("niveau", "A" if c["kind"] == "pokemon" else "C")
+        c.setdefault("length", 0)
+        groups[c["franchise"]].append(c)
+    for lst in groups.values():
+        lst.sort(key=lambda c: -max(c["length"], c["links"] * 1500))
+        n = len(lst)
+        for pos, c in enumerate(lst):
+            base = 100 * TIER[c["niveau"]] * (0.35 + 0.65 * (1 - pos / max(1, n - 1)))
+            bonus = min(12, 3 * math.log2(1 + c["links"]))
+            bonus += 5 if c["role"] in ("Boss", "Antagoniste", "Légendaire", "Fabuleux") else 0
+            bonus += 5 if c["role"] in ("Protagoniste", "Mascotte") else 0
+            c["score"] = round(base + bonus, 1)
+
+    man = json.loads(MANUAL.read_text()) if MANUAL.exists() else {}
+    exact = {k.lower(): v for k, v in man.get("raretes", {}).items()}
+    floor = {k.lower(): v for k, v in man.get("plancher", {}).items()}
+    pick = lambda d, c: d.get(c["nom"].lower()) or d.get(c["en_label"].lower())
     for c in chars:
-        impact = 35 * math.log(c["links"]) / math.log(top)
-        pos = fam_rank[c["franchise"]].index(c)
-        named = c["nom"].split()[0].lower() in (c["franchise"] + " " + c["jeu"]).lower()
-        importance = 30 if (named or c["role"] in ("Mascotte", "Légendaire", "Fabuleux") or pos == 0) else 25 if c["role"] == "Antagoniste" or pos == 1 else 18 if pos < 4 else 8
-        longevite = 10 * min(year - c["annee"], 40) / 40 + 10 * min(c["works"], 25) / 25
-        c["score"] = round(impact + importance + longevite, 1)  # « statut culte » (15) : décidé par l'équipe
-    manual = json.loads(MANUAL.read_text()).get("raretes", {}) if MANUAL.exists() else {}
-    manual = {k.lower(): v for k, v in manual.items()}
-    for c in chars:
-        r = manual.get(c["nom"].lower()) or manual.get(c["en_label"].lower())
-        if r:
-            c["rarete"] = r
-    missing = set(manual) - {c["nom"].lower() for c in chars} - {c["en_label"].lower() for c in chars}
+        c["exact"], c["floor"] = pick(exact, c), pick(floor, c)
+    names = {c["nom"].lower() for c in chars} | {c["en_label"].lower() for c in chars}
+    missing = sorted((set(exact) | set(floor)) - names)
     if missing:
-        print(f"   ! raretés manuelles sans personnage correspondant : {sorted(missing)}", file=sys.stderr)
-    rest = sorted([c for c in chars if "rarete" not in c], key=lambda c: -c["score"])
+        print(f"   ! choix de l'équipe sans personnage correspondant ({len(missing)}) : {missing}", file=sys.stderr)
+
+    # on garde les `total` meilleurs (les choix de l'équipe passent toujours)
+    chars.sort(key=lambda c: (not (c["exact"] or c["floor"] or c.get("forced")), -c["score"]))
+    chars = chars[:total]
     n = len(chars)
+    for c in chars:
+        if c["exact"]:
+            c["rarete"] = c["exact"]
+    rest = sorted([c for c in chars if not c["exact"]], key=lambda c: -c["score"])
     for rid, share in REPARTITION:
-        if rid == "spectaculaire":  # réservé aux icônes absolues, choisies par l'équipe
+        if rid == "spectaculaire":  # réservée aux icônes absolues, choisies par l'équipe
             continue
         quota = max(0, round(share * n) - sum(1 for c in chars if c.get("rarete") == rid))
         for c in rest[:quota]:
@@ -470,6 +582,21 @@ def assign_rarities(chars):
         rest = rest[quota:]
     for c in rest:
         c["rarete"] = "commun"
+
+    # planchers : un perso marquant sous son plancher échange sa place avec le moins marquant de la rareté visée
+    order = [r for r, _ in REPARTITION][::-1]  # commun → spectaculaire
+    rk = order.index
+    for c in sorted([c for c in chars if c["floor"] and not c["exact"]], key=lambda c: -rk(c["floor"])):
+        if rk(c["rarete"]) >= rk(c["floor"]):
+            continue
+        victims = [v for v in chars if v["rarete"] == c["floor"] and not v["exact"]
+                   and not (v["floor"] and rk(v["floor"]) > rk(c["rarete"]))]
+        if victims:
+            v = min(victims, key=lambda v: v["score"])
+            v["rarete"], c["rarete"] = c["rarete"], c["floor"]
+        else:
+            c["rarete"] = c["floor"]
+    return chars
 
 
 def write(chars):

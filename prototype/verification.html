@@ -35,6 +35,8 @@
       const G = Engine.create(CONFIG, CHARACTERS, FRANCHISE_TAGS);
       const { RAR, ORDER } = G;
       const N = 10000, rng = Math.random;
+      // cartes de test prises dans le catalogue (le catalogue est regénéré par le script)
+      const PC = G.chars.find((c) => c.rarete === "peucommun").slug, TOP = G.chars.find((c) => c.rarete === "spectaculaire").slug;
       const results = [];
       const test = (name, fn) => {
         try { const r = fn(); results.push([name, r === true || r === undefined, r === true || r === undefined ? "" : r]); }
@@ -46,7 +48,9 @@
       test("Chaque rareté a au moins 1 personnage", () => ORDER.every((r) => G.chars.some((c) => c.rarete === r)) || "rareté vide");
       test("Chaque personnage a une rareté connue", () => G.chars.every((c) => RAR[c.rarete]) || G.chars.filter((c) => !RAR[c.rarete]).map((c) => c.nom).join(", "));
       test("Identifiants uniques (slug et PDX-)", () => new Set(G.chars.map((c) => c.slug)).size === G.chars.length && new Set(G.chars.map((c) => c.id)).size === G.chars.length);
-      test("Catalogue de 1000 personnages", () => G.chars.length === 1000 || `${G.chars.length} personnages`);
+      test("Catalogue d'environ 3 000 personnages", () => G.chars.length >= 2500 || `${G.chars.length} personnages`);
+      test("Pokémon : moins de 12 % du catalogue", () => G.chars.filter((c) => c.franchise === "Pokémon").length / G.chars.length < 0.12 || "trop de Pokémon");
+      test("Plusieurs persos par franchise (au moins 100 franchises)", () => G.franchises.length >= 100 || `${G.franchises.length} franchises`);
       test("Chaque personnage a une image et un résumé", () => { const m = G.chars.filter((c) => !c.image || !c.resume); return !m.length || "manquants : " + m.slice(0, 5).map((c) => c.nom).join(", "); });
       test("Chaque personnage a au moins un tag de pack", () => { const m = G.chars.filter((c) => !c.tags.length); return !m.length || `${m.length} sans tag : ` + m.slice(0, 5).map((c) => c.nom).join(", "); });
       test("Répartition du catalogue proche de la cible (±1 point)", () => {
@@ -90,24 +94,24 @@
         return (S.coins === CONFIG.economy.depart - 150 && n === 5 && r.xp > 0) || `coins ${S.coins}, cartes ${n}`;
       });
       test("Pas assez de coins : refus, rien n'est débité", () => { const S = G.newState(0); S.coins = 100; return (G.openPack(S, "pack-mythique", 0, rng).error && S.coins === 100) || "pack ouvert"; });
-      test("Marché : rang Argent requis pour vendre", () => { const S = G.newState(0); S.owned.mario = 1; return !!G.listCard(S, "mario", 1500, 0).error || "vente acceptée en Bronze"; });
+      test("Marché : rang Argent requis pour vendre", () => { const S = G.newState(0); S.owned[TOP] = 1; return !!G.listCard(S, TOP, 1500, 0).error || "vente acceptée en Bronze"; });
       test("Marché : prix hors limites refusé (50 % à 500 %)", () => {
-        const S = G.newState(0); S.xp = 200; S.owned.toad = 3;
-        return (!!G.listCard(S, "toad", 4, 0).error && !!G.listCard(S, "toad", 51, 0).error && !G.listCard(S, "toad", 50, 0).error) || "limites non appliquées";
+        const S = G.newState(0); S.xp = 200; S.owned[PC] = 3;
+        return (!!G.listCard(S, PC, 4, 0).error && !!G.listCard(S, PC, 51, 0).error && !G.listCard(S, PC, 50, 0).error) || "limites non appliquées";
       });
       test("Marché : séquestre, annulation, commission de 10 %", () => {
-        const S = G.newState(0); S.xp = 200; S.owned.toad = 1;
-        const a = G.listCard(S, "toad", 20, 0).annonce;
-        if (S.owned.toad) return "carte non retirée";
-        G.cancelListing(S, a.id, 1); if (S.owned.toad !== 1) return "carte non rendue";
-        const b = G.listCard(S, "toad", 20, 2).annonce, before = S.coins;
+        const S = G.newState(0); S.xp = 200; S.owned[PC] = 1;
+        const a = G.listCard(S, PC, 20, 0).annonce;
+        if (S.owned[PC]) return "carte non retirée";
+        G.cancelListing(S, a.id, 1); if (S.owned[PC] !== 1) return "carte non rendue";
+        const b = G.listCard(S, PC, 20, 2).annonce, before = S.coins;
         G.tickMarket(S, 10 * 3600e3, () => 0); // un acheteur simulé passe
         return (b.statut === "vendue" && S.coins - before === 18) || `statut ${b.statut}, reçu ${S.coins - before}`;
       });
       test("Marché : 20 annonces actives maximum", () => {
-        const S = G.newState(0); S.xp = 200; S.owned.toad = 25;
-        for (let i = 0; i < 20; i++) G.listCard(S, "toad", 10, 0);
-        return !!G.listCard(S, "toad", 10, 0).error || "21e annonce acceptée";
+        const S = G.newState(0); S.xp = 200; S.owned[PC] = 25;
+        for (let i = 0; i < 20; i++) G.listCard(S, PC, 10, 0);
+        return !!G.listCard(S, PC, 10, 0).error || "21e annonce acceptée";
       });
       test("Marché : achat atomique, solde insuffisant refusé", () => {
         const S = G.newState(0); G.tickMarket(S, 0, rng);
@@ -117,10 +121,10 @@
         return (S.coins === 0 && S.owned[a.slug] === 1 && !S.marche.includes(a)) || "transfert incomplet";
       });
       test("Annonce expirée après 72 h : la carte revient", () => {
-        const S = G.newState(0); S.xp = 200; S.owned.toad = 1;
-        const a = G.listCard(S, "toad", 50, 0).annonce; S.lastTick = 72 * 3600e3;
+        const S = G.newState(0); S.xp = 200; S.owned[PC] = 1;
+        const a = G.listCard(S, PC, 50, 0).annonce; S.lastTick = 72 * 3600e3;
         G.tickMarket(S, 72 * 3600e3, () => 0.999999);
-        return (a.statut === "expiree" && S.owned.toad === 1) || `statut ${a.statut}`;
+        return (a.statut === "expiree" && S.owned[PC] === 1) || `statut ${a.statut}`;
       });
 
       /* ---------- packs gratuits, connexion, rangs ---------- */

@@ -46,7 +46,9 @@ Pour que les raretés gardent leur valeur, le catalogue doit respecter à peu pr
 |---|---|---|---|---|---|---|
 | ~27 % | ~23 % | ~20 % | ~13 % | ~10 % | ~5 % | ~2 % (5 personnages max pour 150) |
 
-Catalogue actuel (1000 personnages, généré par `scripts/build_characters.py`) : 270 / 230 / 200 / 130 / 100 / 50 / 20.
+Catalogue actuel (3 000 personnages, généré par `scripts/build_characters.py`) : 815 / 690 / 600 / 390 / 300 / 150 / 55.
+
+**Principe** : les persos marquants (icônes, boss de fin, héros cultes) sont forcément en haut ; les figurants en bas. Il faut que tirer un perso nul déçoive et que tirer un perso haut de gamme soit un événement.
 
 ---
 
