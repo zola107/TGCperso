@@ -19,7 +19,9 @@
     const franchises = [...new Set(chars.map((c) => c.franchise))].sort();
     const M = config.market;
 
+    const FREE = config.gratuit.aleatoire;
     const packs = [
+      { id: "aleatoire", nom: FREE.nom, c: FREE.c, prix: 0, kind: "gratuit", minRarity: FREE.minRarity, filter: () => true },
       ...config.rarityPacks.map((p) => ({ ...p, kind: "rarete", filter: () => true })),
       ...config.themePacks.list.map((t) => ({
         id: "theme-" + t.tag, nom: "Pack " + t.nom, theme: t.nom, tag: t.tag, c: t.c, prix: config.themePacks.prix,
@@ -98,7 +100,68 @@
     /* ---------- état du joueur ---------- */
     function newState(now) {
       return { coins: config.economy.depart, xp: 0, owned: {}, vus: {}, franchises: {}, pity: {}, daily: "",
-        created: now, log: [], annonces: [], marche: [], nextId: 1, lastTick: now };
+        created: now, log: [], annonces: [], marche: [], nextId: 1, lastTick: now,
+        gratuit: { stock: FREE.max, t: now }, serie: { n: 0, last: "" }, hebdo: "", bons: {}, packJour: "", recent: [] };
+    }
+
+    /* ---------- calendrier (heure locale du joueur ; côté serveur : son fuseau) ---------- */
+    const pad = (n) => String(n).padStart(2, "0");
+    const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const weekKey = (t) => { const d = new Date(t); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dayKey(d.getTime()); }; // lundi
+    const yesterday = (t) => { const d = new Date(t); d.setDate(d.getDate() - 1); return dayKey(d.getTime()); };
+    const dayIndex = (t) => Math.floor(new Date(dayKey(t) + "T12:00:00").getTime() / 864e5);
+    const themePacks = packs.filter((p) => p.kind === "theme");
+    const packDuJour = (t) => themePacks[dayIndex(t) % themePacks.length];
+
+    /* ---------- packs gratuits ---------- */
+    // Recharge du Pack Aléatoire : +1 toutes les intervalH heures, jusqu'à max.
+    function freeStatus(S, now) {
+      const I = FREE.intervalH * H, g = S.gratuit;
+      if (g.stock >= FREE.max) { g.stock = FREE.max; g.t = now; }
+      else {
+        const gained = Math.floor((now - g.t) / I);
+        if (gained > 0) { g.stock = Math.min(FREE.max, g.stock + gained); g.t = g.stock >= FREE.max ? now : g.t + gained * I; }
+      }
+      return { stock: g.stock, max: FREE.max, next: g.stock < FREE.max ? g.t + I : null };
+    }
+    function freeOffers(S, now) {
+      const jour = packDuJour(now);
+      return {
+        aleatoire: freeStatus(S, now),
+        jour: config.gratuit.packDuJour ? { pack: jour, dispo: S.packJour !== dayKey(now) } : null,
+        bons: Object.entries(S.bons).filter(([, n]) => n > 0).map(([id, n]) => ({ pack: packById(id), n })),
+      };
+    }
+    function payFor(S, pack, pay, now) {
+      if (pay === "coins") {
+        if (pack.kind === "gratuit") return "Ce pack est uniquement gratuit.";
+        if (S.coins < pack.prix) return "Pas assez de coins.";
+        S.coins -= pack.prix;
+        log(S, "pack", -pack.prix, pack.nom, now);
+      } else if (pay === "gratuit") {
+        if (pack.kind !== "gratuit") return "Ce pack n'est pas gratuit.";
+        if (!freeStatus(S, now).stock) return "Aucun Pack Aléatoire disponible pour l'instant.";
+        S.gratuit.stock--;
+      } else if (pay === "jour") {
+        if (!config.gratuit.packDuJour || pack !== packDuJour(now)) return "Ce n'est pas le pack du jour.";
+        if (S.packJour === dayKey(now)) return "Pack du jour déjà ouvert.";
+        S.packJour = dayKey(now);
+      } else if (pay === "bon") {
+        if (!(S.bons[pack.id] > 0)) return "Aucun bon pour ce pack.";
+        S.bons[pack.id]--;
+      } else return "Paiement inconnu.";
+      return "";
+    }
+
+    /* ---------- rangs et divisions (III → II → I) ---------- */
+    const DIVS = ["III", "II", "I"];
+    function rankInfo(xp) {
+      const i = rankOf(xp), r = config.ranks[i], nx = config.ranks[i + 1];
+      if (!nx) return { i, r, div: "", label: r.nom, p: 1, to: null, next: null };
+      const span = (nx.xp - r.xp) / 3, d = Math.min(2, Math.floor((xp - r.xp) / span));
+      const from = r.xp + d * span, to = Math.round(from + span);
+      return { i, r, div: DIVS[d], label: `${r.nom} ${DIVS[d]}`, p: (xp - from) / (to - from), to,
+        next: d < 2 ? `${r.nom} ${DIVS[d + 1]}` : nx.nom };
     }
     function log(S, type, montant, label, now) {
       S.log.unshift({ t: now, type, montant, label });
@@ -133,16 +196,17 @@
       return { xp, completed };
     }
 
-    function openPack(S, packId, now, rng) {
+    // pay : "coins" (achat), "gratuit" (Pack Aléatoire rechargé), "jour" (pack du jour), "bon" (bon de série)
+    function openPack(S, packId, now, rng, pay = "coins") {
       const pack = packById(packId);
       if (!pack) return { error: "Pack inconnu." };
-      if (S.coins < pack.prix) return { error: "Pas assez de coins." };
-      S.coins -= pack.prix;
-      log(S, "pack", -pack.prix, pack.nom, now);
+      const err = payFor(S, pack, pay, now);
+      if (err) return { error: err };
       const d = drawPack(pack, S.owned, S.pity, rng);
       S.pity = d.pity;
       const g = give(S, d.cards, true);
-      return { pack, cards: d.cards, pityHit: d.pityHit, xp: g.xp, completed: g.completed };
+      S.recent = [...d.cards.map((x) => x.c.slug), ...S.recent].slice(0, 15);
+      return { pack, pay, cards: d.cards, pityHit: d.pityHit, xp: g.xp, completed: g.completed };
     }
 
     function viewSheet(S, slug) {
@@ -152,13 +216,28 @@
       return config.xp.fiche;
     }
 
-    function claimDaily(S, day, now) {
+    // Récompense de connexion : coins du jour + série (bon tous les 7 jours) + bonus du lundi.
+    function claimDaily(S, now) {
+      const day = dayKey(now), E = config.economy, sr = config.gratuit.serie;
       if (S.daily === day) return { error: "Déjà récupéré aujourd'hui." };
       S.daily = day;
-      S.coins += config.economy.quotidien;
-      log(S, "quotidien", config.economy.quotidien, "Connexion quotidienne", now);
-      return { gain: config.economy.quotidien };
+      S.serie = { n: S.serie.last === yesterday(now) ? S.serie.n + 1 : 1, last: day };
+      let gain = E.quotidien, bon = null, hebdo = false;
+      log(S, "quotidien", E.quotidien, "Connexion quotidienne", now);
+      if (S.hebdo !== weekKey(now)) {
+        S.hebdo = weekKey(now);
+        gain += E.hebdo;
+        hebdo = true;
+        log(S, "hebdo", E.hebdo, "Bonus de la semaine", now);
+      }
+      if (S.serie.n % sr.jours === 0) {
+        S.bons[sr.bon] = (S.bons[sr.bon] || 0) + 1;
+        bon = packById(sr.bon);
+      }
+      S.coins += gain;
+      return { gain, serie: S.serie.n, bon, hebdo };
     }
+    const dailyDone = (S, now) => S.daily === dayKey(now);
 
     /* ---------- vente rapide ---------- */
     const quickSellValue = (r) => Math.round(RAR[r].prix * config.economy.venteRapide);
@@ -271,7 +350,8 @@
     return {
       ORDER, RAR, rank, chars, bySlug, franchises, packs, packById,
       total, isValidTable, drawFrom, problems, eligible, emptyRarities, drawPack,
-      newState, rankOf, openPack, viewSheet, claimDaily,
+      newState, rankOf, rankInfo, openPack, viewSheet, claimDaily, dailyDone,
+      dayKey, weekKey, packDuJour, freeStatus, freeOffers,
       quickSellValue, quickSell, duplicatesValue, quickSellDuplicates,
       priceBounds, netOf, activeListings, canSell, listCard, cancelListing, buyListing, tickMarket,
     };

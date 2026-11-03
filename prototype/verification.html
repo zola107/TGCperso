@@ -22,6 +22,8 @@
   <table id="tests"><thead><tr><th>Test</th><th>Résultat</th></tr></thead><tbody></tbody></table>
   <h2>Simulation de l'économie (10 000 packs par type, compteur de pitié actif)</h2>
   <table id="sim"><thead><tr><th>Pack</th><th>Prix</th><th>Valeur moyenne</th><th>En vente rapide</th><th>Bilan revente</th></tr></thead><tbody></tbody></table>
+  <h2>Journée type d'un joueur assidu</h2>
+  <table id="day"><thead><tr><th>Source</th><th>Par jour</th></tr></thead><tbody></tbody></table>
   <h2>Répartition observée sur le tirage standard (Pack Solo, 4 premières cartes)</h2>
   <table id="dist"><thead><tr><th>Rareté</th><th>Attendu</th><th>Observé</th></tr></thead><tbody></tbody></table>
 
@@ -114,9 +116,58 @@
         return (a.statut === "expiree" && S.owned.toad === 1) || `statut ${a.statut}`;
       });
 
+      /* ---------- packs gratuits, connexion, rangs ---------- */
+      const H = 3600e3, F = CONFIG.gratuit.aleatoire;
+      test(`Pack Aléatoire : ${F.max} en stock au départ, puis +1 toutes les ${F.intervalH} h`, () => {
+        const S = G.newState(0);
+        for (let i = 0; i < F.max; i++) if (G.openPack(S, "aleatoire", 0, rng, "gratuit").error) return "stock initial insuffisant";
+        if (!G.openPack(S, "aleatoire", 0, rng, "gratuit").error) return "ouvert sans stock";
+        if (G.freeStatus(S, F.intervalH * H - 1).stock !== 0) return "rechargé trop tôt";
+        if (G.freeStatus(S, F.intervalH * H).stock !== 1) return "pas rechargé à l'heure";
+        return G.freeStatus(S, 100 * H).stock === F.max || "dépasse le maximum";
+      });
+      test("Pack Aléatoire : gratuit, ne coûte aucun coin, au moins 1 Rare", () => {
+        const S = G.newState(0), r = G.openPack(S, "aleatoire", 0, rng, "gratuit");
+        if (S.coins !== CONFIG.economy.depart) return "coins débités";
+        if (!G.openPack(S, "aleatoire", 0, rng, "coins").error) return "achetable avec des coins";
+        return r.cards.some((x) => G.rank(x.c.rarete) >= G.rank("rare")) || "pas de Rare";
+      });
+      test("Pack du jour : 1 fois par jour, seulement le thème du jour", () => {
+        const S = G.newState(0), t = new Date(2026, 10, 3, 10).getTime(), p = G.packDuJour(t);
+        const other = G.packs.find((x) => x.kind === "theme" && x !== p);
+        if (!G.openPack(S, other.id, t, rng, "jour").error) return "autre thème accepté";
+        if (G.openPack(S, p.id, t, rng, "jour").error) return "refusé";
+        if (!G.openPack(S, p.id, t + H, rng, "jour").error) return "ouvert 2 fois";
+        const t2 = new Date(2026, 10, 4, 10).getTime();
+        return !G.openPack(S, G.packDuJour(t2).id, t2, rng, "jour").error || "pas disponible le lendemain";
+      });
+      test("Connexion : +250/jour, +500 le premier jour de la semaine, bon Pack Épique au 7e jour", () => {
+        const S = G.newState(0), c0 = S.coins;
+        const d = (k) => new Date(2026, 10, 2 + k, 9).getTime(); // lundi 2 nov. 2026
+        const r1 = G.claimDaily(S, d(0));
+        if (r1.gain !== CONFIG.economy.quotidien + CONFIG.economy.hebdo) return "lundi : " + r1.gain;
+        if (!G.claimDaily(S, d(0) + H).error) return "2 fois le même jour";
+        for (let k = 1; k < 7; k++) G.claimDaily(S, d(k));
+        if (S.serie.n !== 7) return "série " + S.serie.n;
+        if (S.bons["pack-epique"] !== 1) return "bon non donné";
+        if (S.coins - c0 !== 7 * CONFIG.economy.quotidien + CONFIG.economy.hebdo) return "total " + (S.coins - c0);
+        G.claimDaily(S, d(9));
+        return S.serie.n === 1 || "série non remise à zéro après un jour manqué";
+      });
+      test("Bon de série : ouvre le pack une fois sans coins", () => {
+        const S = G.newState(0); S.bons["pack-epique"] = 1;
+        if (G.openPack(S, "pack-epique", 0, rng, "bon").error || S.coins !== CONFIG.economy.depart) return "bon refusé ou coins débités";
+        return !!G.openPack(S, "pack-epique", 0, rng, "bon").error || "bon réutilisé";
+      });
+      test("Rangs : 3 divisions (III, II, I) par rang, Champion sans division", () => {
+        const a = G.rankInfo(0), b = G.rankInfo(100), c = G.rankInfo(149), d = G.rankInfo(150), e = G.rankInfo(99999);
+        return (a.label === "Bronze III" && b.label === "Bronze I" && c.label === "Bronze I" && d.label === "Argent III" && e.label === "Champion") ||
+          [a, b, c, d, e].map((x) => x.label).join(", ");
+      });
+
       /* ---------- simulation de l'économie ---------- */
       const simRows = [], dist = Object.fromEntries(ORDER.map((r) => [r, 0]));
-      let loop = false;
+      let loop = false, freeQuick = 0;
       G.packs.forEach((p) => {
         let value = 0, quick = 0, pity = {};
         for (let i = 0; i < N; i++) {
@@ -127,11 +178,27 @@
           });
         }
         value /= N; quick /= N;
+        if (p.kind === "gratuit") { freeQuick = quick; simRows.push(`<tr><td>${p.nom}</td><td>gratuit</td><td>${value.toFixed(0)}</td><td>${quick.toFixed(0)}</td><td class="muted">offert</td></tr>`); return; }
         if (quick >= p.prix) loop = true;
         simRows.push(`<tr><td>${p.nom}</td><td>${p.prix}</td><td>${value.toFixed(0)}</td><td>${quick.toFixed(0)}</td>
           <td class="${quick < p.prix ? "ok" : "ko"}">${quick < p.prix ? "perte de " + (p.prix - quick).toFixed(0) : "GAIN EN BOUCLE"}</td></tr>`);
       });
       test("Économie : impossible de gagner des coins en ouvrant puis revendant", () => !loop || "un pack rapporte plus qu'il ne coûte");
+
+      // journée type d'un joueur assidu (connexion quotidienne, packs gratuits récupérés à temps)
+      const E = CONFIG.economy, perDay = 24 / F.intervalH;
+      const coinsDay = E.quotidien + E.hebdo / 7, themeDay = coinsDay / CONFIG.themePacks.prix;
+      const bonDay = 1 / CONFIG.gratuit.serie.jours;
+      const total = perDay + 1 + bonDay + themeDay;
+      document.querySelector("#day tbody").innerHTML = [
+        ["Packs Aléatoires (recharge)", perDay.toFixed(1)],
+        ["Pack du jour", "1"],
+        [`Bon de série (1 ${G.packById(CONFIG.gratuit.serie.bon).nom} / ${CONFIG.gratuit.serie.jours} j)`, bonDay.toFixed(2)],
+        [`Packs thématiques achetés avec ${coinsDay.toFixed(0)} coins/jour`, themeDay.toFixed(2)],
+        ["<b>Total par jour</b>", `<b>≈ ${total.toFixed(1)} packs</b>`],
+        ["Revente rapide des packs gratuits (max/jour)", `${((perDay + 1) * freeQuick).toFixed(0)} coins`],
+      ].map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("");
+      test("Journée type : au moins 6 packs par jour", () => total >= 6 || `${total.toFixed(1)} packs`);
 
       document.querySelector("#tests tbody").innerHTML = results.map(([n, ok, msg]) =>
         `<tr><td>${n}</td><td class="${ok ? "ok" : "ko"}">${ok ? "OK" : "ÉCHEC : " + msg}</td></tr>`).join("");

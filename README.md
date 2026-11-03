@@ -16,10 +16,13 @@ Ouvrir ensuite http://localhost:8765.
 
 | Fichier | Rôle |
 |---|---|
-| `config.js` | Tous les réglages : raretés, probabilités, packs, prix, marché, rangs, XP |
+| `config.js` | Tous les réglages : raretés, probabilités, packs (payants et gratuits), prix, marché, rangs, XP |
 | `data.js` | Les personnages et les tags de packs par franchise |
-| `engine.js` | Le moteur : tirages, coins, marché. En vrai projet, il tourne côté serveur |
-| `script.js`, `style.css`, `index.html` | L'interface |
+| `engine.js` | Le moteur : tirages, packs gratuits, coins, marché, rangs. En vrai projet, il tourne côté serveur |
+| `emblems.js` | Les emblèmes dessinés : 7 gemmes de rareté, 7 emblèmes de rang |
+| `script.js`, `style.css`, `index.html` | L'interface : Hub, Boutique, Classeur, Codex, Marché |
+
+Le site a 4 styles (Néon, Holo, Arcade, Royal), chacun en clair et en sombre : bouton « Style » et bouton clair/sombre dans la barre latérale.
 | `verification.html` | Tests des règles + simulation de 10 000 ouvertures par pack |
 
 Après chaque changement de réglage, ouvrir http://localhost:8765/verification.html : tous les tests doivent être verts, et la colonne « Bilan revente » doit rester en perte.

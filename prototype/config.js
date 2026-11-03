@@ -52,7 +52,17 @@ const CONFIG = {
   // Compteur de pitié : après N packs sans cette rareté ou mieux, la carte garantie y passe.
   pity: { epique: 10, legendaire: 40 },
 
-  economy: { depart: 600, quotidien: 150, venteRapide: 0.30 },
+  economy: { depart: 600, quotidien: 250, hebdo: 500, venteRapide: 0.30 },
+
+  // Packs gratuits : environ 8 à 9 packs par jour pour un joueur assidu.
+  gratuit: {
+    // Pack Aléatoire : tout le catalogue, tirage standard, au moins 1 Rare ou mieux.
+    aleatoire: { nom: "Pack Aléatoire", c: "#ff7a45", intervalH: 4, max: 3, minRarity: "rare" },
+    // Pack du jour : un pack thématique offert, le thème change chaque jour.
+    packDuJour: true,
+    // Série de connexions : tous les 7 jours d'affilée, un bon pour ce pack.
+    serie: { jours: 7, bon: "pack-epique" },
+  },
 
   market: {
     commission: 0.10,

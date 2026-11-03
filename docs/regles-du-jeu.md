@@ -152,10 +152,21 @@ Une seule monnaie gratuite : les **coins**. Aucun achat avec de l'argent réel.
 | Source | Gain |
 |---|---|
 | Départ | 600 |
-| Connexion quotidienne | 150 |
+| Connexion quotidienne | 250 |
+| Bonus de la semaine (1re connexion de la semaine) | 500 |
 | Vente rapide d'une carte | 30 % du prix de référence |
 | Vente au marché | prix fixé par le vendeur − 10 % de commission |
 | Succès, montées de rang (V2) | variable |
+
+### Packs gratuits
+
+| Pack | Fréquence | Contenu |
+|---|---|---|
+| **Pack Aléatoire** | +1 toutes les 4 h, 3 en stock max (6 par jour) | Tout le catalogue, tirage standard, au moins 1 Rare. Mythique 1,2 % et Spectaculaire 0,3 % par carte |
+| **Pack du jour** | 1 par jour | Un pack thématique offert ; le thème change chaque jour à minuit |
+| **Bon de série** | tous les 7 jours de connexion d'affilée | 1 Pack Épique offert. Un jour manqué remet la série à zéro |
+
+Journée type d'un joueur assidu : 6 Packs Aléatoires + 1 pack du jour + ~2 packs thématiques achetés avec les coins ≈ **9 packs par jour** (calcul détaillé dans `prototype/verification.html`). Les packs gratuits comptent pour le compteur de pitié.
 
 | Dépense | Coût |
 |---|---|
@@ -216,6 +227,8 @@ Distincts des raretés de cartes. Les noms reprennent les paliers classiques des
 | Diamant | 1800 |
 | Élite | 3200 |
 | Champion | 5000 |
+
+Chaque rang (sauf Champion) est découpé en **3 divisions** de même taille : III → II → I. Exemple : Bronze III de 0 à 49 XP, Bronze II de 50 à 99, Bronze I de 100 à 149, puis Argent III. Les emblèmes de rang et de rareté sont dessinés pour le projet (`prototype/emblems.js`).
 
 | Gain d'XP | XP |
 |---|---|
