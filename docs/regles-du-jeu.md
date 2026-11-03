@@ -46,7 +46,7 @@ Pour que les raretés gardent leur valeur, le catalogue doit respecter à peu pr
 |---|---|---|---|---|---|---|
 | ~27 % | ~23 % | ~20 % | ~13 % | ~10 % | ~5 % | ~2 % (5 personnages max pour 150) |
 
-Le CSV actuel (150 personnages) : 40 / 35 / 30 / 20 / 15 / 7 / 3.
+Catalogue actuel (1000 personnages, généré par `scripts/build_characters.py`) : 270 / 230 / 200 / 130 / 100 / 50 / 20.
 
 ---
 
@@ -85,7 +85,9 @@ On ne se base **ni sur la puissance** du personnage dans son jeu, **ni sur nos g
 
 ### Automatisation (ticket D-4)
 
-Le pipeline peut pré-calculer le score (impact culturel via Wikidata, longévité via Giant Bomb) et proposer une rareté. Un humain valide toujours avant publication.
+`scripts/build_characters.py` calcule le score automatiquement : impact culturel (nombre de Wikipédias, via Wikidata), importance dans la série (protagoniste, mascotte, légendaire, rang dans la franchise), longévité (années depuis la 1re apparition et nombre de jeux). Le « statut culte » reste un choix de l'équipe. Les raretés sont ensuite attribuées dans l'ordre du score pour respecter la répartition cible.
+
+Les décisions de l'équipe sont dans `scripts/rarete_manuelle.json` : raretés imposées (dont **toutes les Spectaculaires**, jamais attribuées automatiquement), personnages ajoutés ou retirés à la main. Un humain relit toujours le catalogue avant publication.
 
 ---
 

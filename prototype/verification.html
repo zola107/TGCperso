@@ -46,7 +46,14 @@
       test("Chaque rareté a au moins 1 personnage", () => ORDER.every((r) => G.chars.some((c) => c.rarete === r)) || "rareté vide");
       test("Chaque personnage a une rareté connue", () => G.chars.every((c) => RAR[c.rarete]) || G.chars.filter((c) => !RAR[c.rarete]).map((c) => c.nom).join(", "));
       test("Identifiants uniques (slug et PDX-)", () => new Set(G.chars.map((c) => c.slug)).size === G.chars.length && new Set(G.chars.map((c) => c.id)).size === G.chars.length);
-      test("Chaque franchise a des tags", () => { const m = G.franchises.filter((f) => !FRANCHISE_TAGS[f]); return !m.length || "sans tags : " + m.join(", "); });
+      test("Catalogue de 1000 personnages", () => G.chars.length === 1000 || `${G.chars.length} personnages`);
+      test("Chaque personnage a une image et un résumé", () => { const m = G.chars.filter((c) => !c.image || !c.resume); return !m.length || "manquants : " + m.slice(0, 5).map((c) => c.nom).join(", "); });
+      test("Chaque personnage a au moins un tag de pack", () => { const m = G.chars.filter((c) => !c.tags.length); return !m.length || `${m.length} sans tag : ` + m.slice(0, 5).map((c) => c.nom).join(", "); });
+      test("Répartition du catalogue proche de la cible (±1 point)", () => {
+        const cible = { commun: 27, peucommun: 23, rare: 20, epique: 13, legendaire: 10, mythique: 5, spectaculaire: 2 };
+        const bad = ORDER.filter((r) => Math.abs((G.chars.filter((c) => c.rarete === r).length / G.chars.length) * 100 - cible[r]) > 1);
+        return !bad.length || "écart : " + bad.join(", ");
+      });
       test("Chaque pack thématique a au moins 1 personnage", () => { const v = G.packs.filter((p) => p.kind === "theme" && !G.chars.some(p.filter)); return !v.length || v.map((p) => p.nom).join(", "); });
       test("Rangs dans l'ordre croissant d'XP", () => CONFIG.ranks.every((r, i) => !i || r.xp > CONFIG.ranks[i - 1].xp));
       test("Spectaculaire : 5 personnages max pour 150 (proportion ≤ 3,4 %)", () => G.chars.filter((c) => c.rarete === "spectaculaire").length / G.chars.length <= 5 / 150 + 0.03 || "trop de Spectaculaires");

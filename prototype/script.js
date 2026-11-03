@@ -23,9 +23,17 @@
   function load() {
     try {
       const s = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (s) return { ...G.newState(now()), ...s };
+      if (s) return clean({ ...G.newState(now()), ...s });
     } catch {}
     return G.newState(now());
+  }
+  // une sauvegarde peut citer des cartes retirées du catalogue : on les oublie
+  function clean(s) {
+    s.marche = s.marche.filter((a) => G.bySlug[a.slug]);
+    s.annonces = s.annonces.filter((a) => G.bySlug[a.slug]);
+    s.recent = s.recent.filter((x) => G.bySlug[x]);
+    Object.keys(s.owned).forEach((k) => { if (!G.bySlug[k]) delete s.owned[k]; });
+    return s;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
 
@@ -50,14 +58,18 @@
   /* ============================================================
      CARTES
      ============================================================ */
+  // illustration : les artworks officiels détourés (Pokémon) sont affichés en entier ;
+  // les images Wikipédia (souvent avec un fond) remplissent la carte.
+  // Si l'image ne charge pas, l'initiale du personnage la remplace.
+  const isCutout = (src) => src.includes("official-artwork") || /\.svg/i.test(src);
+  const artImg = (c) => `<img class="${isCutout(c.image) ? "cutout" : "photo"}" src="${c.image}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.nextElementSibling.hidden=false;this.remove()">`;
   function cardHTML(c, o = {}) {
-    const locked = o.locked, qty = S.owned[c.slug] || 0;
-    const art = !locked && c.image ? `<img src="${c.image}" alt="" loading="lazy">` : "";
+    const locked = o.locked, qty = S.owned[c.slug] || 0, img = !locked && c.image;
     const badge = o.isNew ? `<span class="badge">Nouveau</span>` : o.dup ? `<span class="badge dup">Doublon</span>` : "";
     const q = !o.noQty && qty > 1 ? `<span class="qty">×${qty}</span>` : "";
     return `<div class="card-wrap"><div class="card${locked ? " locked" : ""}" data-r="${c.rarete}" ${locked ? "" : `data-slug="${c.slug}" tabindex="0"`}>
       <div class="card-in">
-        <div class="art" style="--h:${hue(c.franchise)}">${art}<span class="initial">${locked ? "?" : c.nom[0]}</span></div>
+        <div class="art" style="--h:${hue(c.franchise)}">${img ? artImg(c) : ""}<span class="initial" ${img ? "hidden" : ""}>${locked ? "?" : c.nom[0]}</span></div>
         <div class="card-head">${gem(c.rarete, "gem card-gem")}<span class="card-id">${no(c)}</span></div>
         ${badge}${q}
         <div class="plate">
@@ -68,12 +80,12 @@
       </div></div></div>`;
   }
   // vignette carrée pour les listes (Codex, Marché)
-  const thumb = (c) => `<span class="thumb" data-r="${c.rarete}" style="--h:${hue(c.franchise)}">${c.image ? `<img src="${c.image}" alt="" loading="lazy">` : c.nom[0]}${gem(c.rarete, "gem thumb-gem")}</span>`;
+  const thumb = (c) => `<span class="thumb" data-r="${c.rarete}" style="--h:${hue(c.franchise)}">${c.image ? artImg(c) : ""}<span ${c.image ? "hidden" : ""}>${c.nom[0]}</span>${gem(c.rarete, "gem thumb-gem")}</span>`;
 
   // inclinaison 3D + reflet qui suit le curseur
   document.addEventListener("mousemove", (e) => {
     const card = e.target.closest(".card:not(.locked)");
-    if (!card) return;
+    if (!card || card.closest(".face")) return; // pas d'inclinaison pendant l'ouverture
     const r = card.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
     card.style.setProperty("--ry", (x - 0.5) * 16 + "deg");
@@ -333,6 +345,7 @@
           <dt>Première apparition</dt><dd>${c.jeu}, ${c.annee}</dd>
           <dt>Exemplaires</dt><dd>${qty ? `×${qty}` : "pas encore obtenue"}</dd>
           <dt>Prix de référence</dt><dd>${coin(RAR[c.rarete].prix)}</dd>
+          ${c.source ? `<dt>Source</dt><dd><a class="src" href="${c.source}" target="_blank" rel="noopener">${c.source.includes("pokeapi") ? "PokéAPI" : "Wikipédia"} ↗</a></dd>` : ""}
         </dl>
         ${qty ? `<div class="row">
           <button class="btn" data-sell="${c.slug}">Mettre en vente</button>
@@ -449,16 +462,29 @@
     closeModal();
     opening = res;
 
-    const st = $("#stage"); st.hidden = false; st.className = "stage";
+    // la ligne de déchirure : la même dentelure découpe le haut et le corps du sachet
+    const N = 16, Y = Array.from({ length: N + 1 }, (_, i) => 17 + (i % 2 ? 2.4 : -1.2) + Math.sin(i * 1.7) * 0.8);
+    const edge = Y.map((y, i) => `${(i / N) * 100}% ${y}%`);
+    const st = $("#stage"); st.hidden = false; st.className = "stage phase-tear";
     st.innerHTML = `<div class="stage-in" style="--a:${res.pack.c}">
-      <div class="pack-burst" aria-hidden="true">${wrapper(res.pack)}</div>
-      <div class="stage-body">
+      <div class="tear-zone">
         <p class="kicker">${pay === "coins" ? "Acheté" : pay === "bon" ? "Bon utilisé" : "Offert"}</p>
-        <h2>${res.pack.nom}</h2><p class="stage-hint">Touchez une carte pour la retourner.</p>
+        <h2>${res.pack.nom}</h2>
+        <div class="tear" id="tear" tabindex="0" role="button" aria-label="Déchirer le pack">
+          <div class="tear-body" style="clip-path:polygon(${edge.join(",")},100% 100%,0 100%)">${wrapper(res.pack)}</div>
+          <div class="tear-top" style="clip-path:polygon(0 0,100% 0,${[...edge].reverse().join(",")})">${wrapper(res.pack)}</div>
+          <span class="tear-guide" aria-hidden="true"><i></i></span>
+          <span class="tear-flash" aria-hidden="true"></span>
+        </div>
+        <p class="stage-hint">Glissez le long du haut du pack pour le déchirer</p>
+        <button class="btn ghost sm" id="tear-btn">Ouvrir sans glisser</button>
+      </div>
+      <div class="stage-body">
+        <p class="stage-hint">Touchez une carte pour la retourner.</p>
         <div class="reveal">${res.cards.map((x, i) => `
           <div class="flip" data-r="${x.c.rarete}" style="--c:var(--${x.c.rarete})" role="button" tabindex="0" aria-label="Retourner la carte ${i + 1}">
             <div class="flip-in">
-              <div class="face back"><span class="back-mark"><i></i><i></i></span></div>
+              <div class="face back"><span class="back-mark"><i></i><i></i></span><span class="back-name">Rosterium</span></div>
               <div class="face front">${cardHTML(x.c, { isNew: x.isNew, dup: !x.isNew, noQty: true })}</div>
             </div></div>`).join("")}</div>
         <div class="recap" id="recap" hidden></div>
@@ -466,19 +492,70 @@
       </div></div>`;
   }
 
+  /* --- déchirer le pack : on suit le doigt / la souris le long du haut --- */
+  let tearing = null;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  function setTear(t) { $("#tear").style.setProperty("--t", t.toFixed(3)); }
+  document.addEventListener("pointerdown", (e) => {
+    const tear = e.target.closest("#tear");
+    if (!tear || $("#stage").classList.contains("torn")) return;
+    tear.setPointerCapture(e.pointerId);
+    tearing = { x: e.clientX, w: tear.getBoundingClientRect().width, moved: false };
+    tear.classList.add("dragging");
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!tearing) return;
+    const t = Math.max(0, Math.min(1, (e.clientX - tearing.x) / (tearing.w * 0.9)));
+    if (t > 0.02) tearing.moved = true;
+    setTear(t);
+    if (t >= 1) finishTear();
+  });
+  document.addEventListener("pointerup", () => {
+    if (!tearing) return;
+    const t = Number($("#tear").style.getPropertyValue("--t") || 0), moved = tearing.moved;
+    tearing = null;
+    $("#tear").classList.remove("dragging");
+    if (t > 0.5 || !moved) finishTear(); // un simple appui ouvre aussi le pack
+    else setTear(0);                     // pas assez tiré : le haut se remet en place
+  });
+  function finishTear() {
+    const st = $("#stage");
+    if (!st || st.classList.contains("torn")) return;
+    tearing = null;
+    setTear(1);
+    st.classList.add("torn");
+    // les cartes sortent du sachet : chacune part du centre du pack vers sa place
+    const p = $("#tear").getBoundingClientRect(), px = p.left + p.width / 2, py = p.top + p.height * 0.3;
+    setTimeout(() => {
+      st.classList.remove("phase-tear"); st.classList.add("phase-deal");
+      $$(".flip").forEach((f, i) => {
+        const r = f.getBoundingClientRect();
+        f.style.setProperty("--dx", `${px - (r.left + r.width / 2)}px`);
+        f.style.setProperty("--dy", `${py - (r.top + r.height / 2)}px`);
+        f.style.setProperty("--rot", `${(i - 2) * 7}deg`);
+        f.style.animationDelay = `${i * 90}ms`;
+      });
+    }, reduced.matches ? 0 : 800);
+  }
+
+  /* --- retourner : la carte se soulève, pivote d'un seul geste, puis se repose --- */
   function flip(el) {
-    if (el.classList.contains("peek")) return;
-    el.classList.add("peek"); // le dos trahit la rareté juste avant le retournement
+    if (!$("#stage").classList.contains("phase-deal") || el.classList.contains("lift")) return;
+    const r = el.dataset.r, big = G.rank(r) >= G.rank("epique");
+    el.classList.add("lift"); // le dos trahit la rareté pendant qu'elle se soulève
     setTimeout(() => {
       el.classList.add("on");
-      if (el.dataset.r === "spectaculaire") {
+      if (r === "spectaculaire") {
         const st = $("#stage"); st.classList.remove("spectacle"); void st.offsetWidth; st.classList.add("spectacle");
       }
-      if ($$(".flip").every((f) => f.classList.contains("on"))) showRecap();
-    }, 450);
+      setTimeout(() => {
+        el.classList.add("settled");
+        if ($$(".flip").every((f) => f.classList.contains("settled"))) showRecap();
+      }, r === "spectaculaire" ? 950 : 720);
+    }, big ? 560 : 280); // plus la rareté est haute, plus le suspense dure
   }
   function revealAll() {
-    $$(".flip:not(.peek)").forEach((f, i) => setTimeout(() => flip(f), i * 280));
+    $$(".flip:not(.lift)").forEach((f, i) => setTimeout(() => flip(f), i * 360));
   }
   function nextOpenButton(p) {
     if (p.kind === "gratuit") {
@@ -489,6 +566,7 @@
   }
   function showRecap() {
     const res = opening; if (!res || !$("#recap").hidden) return;
+    $(".stage-body > .stage-hint").hidden = true;
     const nb = res.cards.filter((x) => x.isNew).length;
     $("#recap").hidden = false;
     $("#recap").innerHTML = `
@@ -559,9 +637,15 @@
       <div class="spread${per > 1 ? " two" : ""}">${Array.from({ length: per }, (_, k) => pageHTML(first + k)).join("")}</div>
       <div class="pager">
         <button class="btn ghost sm" data-bp="-1" ${BIN.page ? "" : "disabled"} aria-label="Pages précédentes">‹</button>
-        <span>Page${per > 1 ? "s" : ""} ${first + 1}${per > 1 && first + 2 <= pages ? `–${first + 2}` : ""} sur ${pages}</span>
+        <label class="page-jump">Page${per > 1 ? "s" : ""}
+          <select id="b-page" aria-label="Aller à la page">${Array.from({ length: spreads }, (_, k) => {
+            const a = k * per + 1, b = Math.min(pages, a + per - 1), c0 = list[(a - 1) * PER_PAGE];
+            return `<option value="${k}" ${k === BIN.page ? "selected" : ""}>${a}${b > a ? `–${b}` : ""} · ${no(c0)} ${c0.franchise}</option>`;
+          }).join("")}</select>
+          sur ${pages}</label>
         <button class="btn ghost sm" data-bp="1" ${BIN.page < spreads - 1 ? "" : "disabled"} aria-label="Pages suivantes">›</button>
       </div>` : `<p class="empty-note">Aucune carte ne correspond. Changez de filtre ou ouvrez un pack.</p>`;
+    $("#b-page")?.addEventListener("input", (e) => { BIN.page = Number(e.target.value); renderPages(); });
   }
   wide.addEventListener("change", () => { if (current() === "classeur") renderPages(); });
 
@@ -586,7 +670,7 @@
   /* ============================================================
      04 · CODEX (encyclopédie : liste par lettre ou grille)
      ============================================================ */
-  const CX = { q: "", f: "", th: "", r: "", tri: "az", vue: "liste" };
+  const CX = { q: "", f: "", th: "", r: "", tri: "az", vue: "liste", limit: 120 };
   function fillSelect(sel, first, items, val = "") {
     sel.innerHTML = `<option value="">${first}</option>` + items.map(([v, l]) => `<option value="${v}" ${v === val ? "selected" : ""}>${l}</option>`).join("");
   }
@@ -609,7 +693,7 @@
     fillSelect($("#c-r"), "Toutes les raretés", ORDER.map((r) => [r, RAR[r].nom]), CX.r);
     $("#c-tri").value = CX.tri;
     [["#q", "q"], ["#c-f", "f"], ["#c-th", "th"], ["#c-r", "r"], ["#c-tri", "tri"]].forEach(([s, k]) =>
-      $(s).addEventListener("input", (e) => { CX[k] = e.target.value; renderCodexList(); }));
+      $(s).addEventListener("input", (e) => { CX[k] = e.target.value; CX.limit = CX_STEP; renderCodexList(); }));
     renderCodexList();
   }
   function renderCodexList() {
@@ -623,11 +707,14 @@
       : CX.tri === "num" ? a.id.localeCompare(b.id) : a.nom.localeCompare(b.nom));
     $("#count").textContent = plural(list.length, "personnage");
     if (!list.length) { $("#codex-list").innerHTML = `<p class="empty-note">Aucun résultat. Essayez un autre nom ou retirez un filtre.</p>`; return; }
-    if (CX.vue === "cartes") { $("#codex-list").innerHTML = `<div class="grid">${list.map((c) => cardHTML(c, { noQty: true })).join("")}</div>`; return; }
+    // 1000 fiches : on affiche par tranches, la suite arrive quand on descend
+    const shown = list.slice(0, CX.limit), rest = list.length - shown.length;
+    const more = rest ? `<button class="btn ghost more" id="cx-more">Afficher ${Math.min(rest, CX_STEP)} de plus · reste ${num(rest)}</button>` : "";
+    if (CX.vue === "cartes") { $("#codex-list").innerHTML = `<div class="grid">${shown.map((c) => cardHTML(c, { noQty: true })).join("")}</div>${more}`; return watchMore(); }
     // liste : groupée par lettre (tri A→Z) ou en une seule table
     const key = (c) => CX.tri === "az" ? c.nom[0].toUpperCase() : "";
     let last = null, out = "";
-    list.forEach((c) => {
+    shown.forEach((c) => {
       const k = key(c);
       if (k !== last) { out += `${last !== null ? "</div>" : ""}${k ? `<h3 class="letter">${k}</h3>` : ""}<div class="rows">`; last = k; }
       const q = S.owned[c.slug] || 0;
@@ -640,8 +727,12 @@
         <span class="rc-own ${q ? "yes" : ""}">${q ? `×${q}` : "—"}</span>
       </button>`;
     });
-    $("#codex-list").innerHTML = out + "</div>";
+    $("#codex-list").innerHTML = out + "</div>" + more;
+    watchMore();
   }
+  const CX_STEP = 120;
+  const moreObserver = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) $("#cx-more")?.click(); }, { rootMargin: "600px" });
+  function watchMore() { moreObserver.disconnect(); if ($("#cx-more")) moreObserver.observe($("#cx-more")); }
 
   /* ============================================================
      05 · MARCHÉ
@@ -805,6 +896,7 @@
     if (at("[data-open]")) return openSheet(at("[data-open]").dataset.open);
     if (at("[data-odds]")) return showOdds(at("[data-odds]").dataset.odds);
     if (at("[data-pack]")) { const b = at("[data-pack]"); return openPack(b.dataset.pack, b.dataset.pay || "coins"); }
+    if (at("#tear-btn")) return finishTear();
     if (at(".flip")) return flip(at(".flip"));
     if (at("#reveal-all")) return revealAll();
     if (at("#close-stage")) { $("#stage").hidden = true; opening = null; return refresh(); }
@@ -815,7 +907,8 @@
     if (at("[data-tab]")) { mTab = at("[data-tab]").dataset.tab; return renderMarket(); }
     if (at("[data-bs]")) { BIN.s = at("[data-bs]").dataset.bs; BIN.page = 0; $$("[data-bs]").forEach((b) => b.classList.toggle("on", b === at("[data-bs]"))); return renderPages(); }
     if (at("[data-bp]")) { BIN.page += Number(at("[data-bp]").dataset.bp); return renderPages(); }
-    if (at("[data-cv]")) { CX.vue = at("[data-cv]").dataset.cv; $$("[data-cv]").forEach((b) => b.classList.toggle("on", b === at("[data-cv]"))); return renderCodexList(); }
+    if (at("#cx-more")) { CX.limit += CX_STEP; const y = scrollY; renderCodexList(); return scrollTo(0, y); }
+    if (at("[data-cv]")) { CX.vue = at("[data-cv]").dataset.cv; CX.limit = CX_STEP; $$("[data-cv]").forEach((b) => b.classList.toggle("on", b === at("[data-cv]"))); return renderCodexList(); }
     if (at("[data-cancel]")) {
       const res = G.cancelListing(S, at("[data-cancel]").dataset.cancel, now());
       if (res.error) return toast(res.error);
@@ -850,6 +943,7 @@
     if (e.key === "Escape") { closeModal(); toggleStyleMenu(false); }
     if (e.key === "Enter" || e.key === " ") {
       if (e.target.matches(".flip")) { e.preventDefault(); flip(e.target); }
+      else if (e.target.matches("#tear")) { e.preventDefault(); finishTear(); }
       else if (e.target.matches(".card[data-slug]")) openSheet(e.target.dataset.slug);
     }
   });

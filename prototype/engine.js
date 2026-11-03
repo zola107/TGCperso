@@ -13,7 +13,8 @@
     const ORDER = config.rarities.map((r) => r.id);
     const RAR = Object.fromEntries(config.rarities.map((r) => [r.id, r]));
     const rank = (id) => ORDER.indexOf(id);
-    const tagsOf = (c) => [...(franchiseTags[c.franchise] || []), ...(c.annee < 2000 ? ["retro"] : [])];
+    // tags : ceux du personnage (catalogue généré), sinon ceux de sa franchise ; « retro » avant 2000
+    const tagsOf = (c) => [...new Set([...(c.tags || franchiseTags[c.franchise] || []), ...(c.annee < 2000 ? ["retro"] : [])])];
     const chars = characters.map((c, i) => ({ ...c, id: "PDX-" + String(i + 1).padStart(4, "0"), tags: tagsOf(c) }));
     const bySlug = Object.fromEntries(chars.map((c) => [c.slug, c]));
     const franchises = [...new Set(chars.map((c) => c.franchise))].sort();
