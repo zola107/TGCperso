@@ -6,8 +6,18 @@
   <title>Rosterium · croquis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&family=Press+Start+2P&family=Sora:wght@600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Style et mode appliqués avant l'affichage (pas de flash). Sans choix enregistré,
+    // le mode suit le réglage de l'appareil.
+    (function () {
+      var d = document.documentElement, s = "neon", m = "";
+      try { s = localStorage.getItem("rosterium-style") || s; m = localStorage.getItem("rosterium-mode") || ""; } catch (e) {}
+      d.dataset.style = s;
+      d.dataset.mode = m || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    })();
+  </script>
 </head>
 <body>
   <header class="top">
@@ -20,6 +30,13 @@
       <a href="#marche" data-v="marche">Marché</a>
     </nav>
     <div class="hud" id="hud"></div>
+    <div class="prefs">
+      <button class="icon-btn" id="style-btn" aria-haspopup="true" aria-expanded="false" aria-controls="style-menu" title="Changer de style" aria-label="Changer de style">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="6.8" r="1.2" fill="currentColor"/><circle cx="15" cy="7.2" r="1.2" fill="currentColor"/></svg>
+      </button>
+      <button class="icon-btn" id="mode-btn"></button>
+      <div class="style-menu" id="style-menu" role="menu" hidden></div>
+    </div>
   </header>
 
   <main>

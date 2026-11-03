@@ -96,6 +96,55 @@
   const persist = () => { save(); renderHud(); };
 
   /* ============================================================
+     APPARENCE : style + mode clair/sombre (préférence de ce navigateur)
+     Les couleurs de chaque style sont dans style.css ; ajouter un style,
+     c'est une ligne ici + deux blocs de jetons là-bas.
+     ============================================================ */
+  const STYLES = [
+    { id: "neon",   nom: "Néon",   desc: "Cyan et violet électriques", sw: ["#090a12", "#3ee6ff", "#a77bff"] },
+    { id: "holo",   nom: "Holo",   desc: "Nacré, irisé, pastel",       sw: ["#f8f4ff", "#ff9ad9", "#8de9ff"] },
+    { id: "arcade", nom: "Arcade", desc: "Rétro, pixel, cathodique",   sw: ["#06090a", "#39ff6a", "#ffcc00"] },
+    { id: "royal",  nom: "Royal",  desc: "Noir et or",                 sw: ["#0c0a07", "#e3b75f", "#a3264d"] },
+  ];
+  const html = document.documentElement;
+  const systemLight = matchMedia("(prefers-color-scheme: light)");
+  const pref = (k, v) => { try { v === undefined ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
+  const stored = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const ICON = {
+    sun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>`,
+    moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>`,
+  };
+
+  function setStyle(id) {
+    if (!STYLES.some((s) => s.id === id)) id = "neon";
+    html.dataset.style = id;
+    pref("rosterium-style", id);
+    renderStyleMenu();
+  }
+  function setMode(mode) {
+    html.dataset.mode = mode;
+    const dark = mode === "dark";
+    $("#mode-btn").innerHTML = dark ? ICON.sun : ICON.moon;
+    $("#mode-btn").setAttribute("aria-label", dark ? "Passer en mode clair" : "Passer en mode sombre");
+    $("#mode-btn").title = dark ? "Mode clair" : "Mode sombre";
+  }
+  function renderStyleMenu() {
+    $("#style-menu").innerHTML = `<p>Style</p>` + STYLES.map((s) => `
+      <button class="style-opt" role="menuitemradio" aria-checked="${html.dataset.style === s.id}" data-style-id="${s.id}">
+        <span class="swatch">${s.sw.map((c) => `<i style="background:${c}"></i>`).join("")}</span>
+        <span><b>${s.nom}</b><small>${s.desc}</small></span>
+      </button>`).join("");
+  }
+  function toggleStyleMenu(open = $("#style-menu").hidden) {
+    $("#style-menu").hidden = !open;
+    $("#style-btn").setAttribute("aria-expanded", open);
+  }
+  // sans choix enregistré, le mode suit l'appareil (même s'il change en cours de route)
+  systemLight.addEventListener("change", (e) => { if (!stored("rosterium-mode")) setMode(e.matches ? "light" : "dark"); });
+  setStyle(html.dataset.style);
+  setMode(html.dataset.mode);
+
+  /* ============================================================
      ROUTEUR (navigation par #ancres)
      ============================================================ */
   const VIEWS = ["accueil", "explorer", "packs", "collection", "marche"];
@@ -265,7 +314,7 @@
       body = `<h3>Chaque carte · tirage standard</h3>${oddsBars(CONFIG.standardOdds)}
         <p class="note">Si aucune des ${CONFIG.packSize} cartes n'est ${RAR[p.minRarity].nom} ou mieux, la dernière est retirée parmi les raretés ${RAR[p.minRarity].nom} et plus (mêmes proportions).</p>
         <h3>Personnages du thème</h3>
-        <div class="by-r">${ORDER.map((r) => `<span><b style="color:var(--${r})">${RAR[r].nom}</b> ${G.eligible(p, r).length}</span>`).join("")}</div>
+        <div class="by-r">${ORDER.map((r) => `<span><b class="rt" style="--c:var(--${r})">${RAR[r].nom}</b> ${G.eligible(p, r).length}</span>`).join("")}</div>
         ${empty.length ? `<p class="note">Aucun personnage ${empty.map((r) => RAR[r].nom).join(", ")} dans ce thème : pour ces raretés, la carte est tirée dans tout le catalogue.</p>` : ""}`;
     }
     showModal(`<div class="odds-sheet">
@@ -353,7 +402,7 @@
       <div class="xpbar"><i style="width:${p}%"></i></div>
       <div class="by-r">${ORDER.map((r) => {
         const all = G.chars.filter((c) => c.rarete === r), got = all.filter((c) => S.owned[c.slug]).length;
-        return `<span><b style="color:var(--${r})">${RAR[r].nom}</b> ${got}/${all.length}</span>`;
+        return `<span><b class="rt" style="--c:var(--${r})">${RAR[r].nom}</b> ${got}/${all.length}</span>`;
       }).join("")}<span><b>Franchises complétées</b> ${done}/${big.length}</span></div>`;
 
     const dupValue = G.duplicatesValue(S);
@@ -478,7 +527,7 @@
     $("#m-body").innerHTML = `
       <table class="table"><thead><tr><th>Rareté</th><th>Prix de référence</th><th>Vente rapide</th><th>Prix de vente autorisé</th></tr></thead>
       <tbody>${ORDER.map((r) => { const [lo, hi] = G.priceBounds(r); return `
-        <tr><td><b style="color:var(--${r})">${RAR[r].nom}</b></td><td>${num(RAR[r].prix)}</td><td>${num(G.quickSellValue(r))}</td><td>${num(lo)} à ${num(hi)}</td></tr>`; }).join("")}</tbody></table>
+        <tr><td><b class="rt" style="--c:var(--${r})">${RAR[r].nom}</b></td><td>${num(RAR[r].prix)}</td><td>${num(G.quickSellValue(r))}</td><td>${num(lo)} à ${num(hi)}</td></tr>`; }).join("")}</tbody></table>
       <p class="note">Vente rapide : ${pct(CONFIG.economy.venteRapide * 100)} du prix de référence, payée tout de suite par le site. Marché : de ${pct(M.prixMin * 100)} à ${pct(M.prixMax * 100)} du prix de référence, moins ${pct(M.commission * 100)} de commission.</p>`;
   }
 
@@ -528,6 +577,14 @@
      ============================================================ */
   document.addEventListener("click", (e) => {
     const t = e.target, at = (s) => t.closest(s);
+    if (at("#style-btn")) return toggleStyleMenu();
+    if (at("[data-style-id]")) { setStyle(at("[data-style-id]").dataset.styleId); return toggleStyleMenu(false); }
+    if (!at("#style-menu")) toggleStyleMenu(false);
+    if (at("#mode-btn")) {
+      const mode = html.dataset.mode === "dark" ? "light" : "dark";
+      pref("rosterium-mode", mode);
+      return setMode(mode);
+    }
     if (at(".close") || at("[data-close]") || t === $("#modal")) return closeModal();
     if (at("[data-open]")) return openSheet(at("[data-open]").dataset.open);
     if (at("[data-odds]")) return showOdds(at("[data-odds]").dataset.odds);
@@ -570,7 +627,7 @@
     toast(`${G.bySlug[slug].nom} mis en vente pour ${coin(res.annonce.prix)}`);
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeModal();
+    if (e.key === "Escape") { closeModal(); toggleStyleMenu(false); }
     if (e.key === "Enter" || e.key === " ") {
       if (e.target.matches(".flip")) { e.preventDefault(); flip(e.target); }
       else if (e.target.matches(".card[data-slug]")) openSheet(e.target.dataset.slug);
