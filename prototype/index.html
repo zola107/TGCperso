@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rosterium · croquis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="logo" href="#accueil"><span class="logo-card"></span>Rosterium</a>
+    <nav class="nav" id="nav">
+      <a href="#accueil" data-v="accueil">Accueil</a>
+      <a href="#explorer" data-v="explorer">Explorer</a>
+      <a href="#packs" data-v="packs">Packs</a>
+      <a href="#collection" data-v="collection">Collection</a>
+      <a href="#marche" data-v="marche">Marché</a>
+    </nav>
+    <div class="hud" id="hud"></div>
+  </header>
+
+  <main>
+    <section id="accueil" class="view"></section>
+
+    <section id="explorer" class="view" hidden>
+      <h1>Explorer les personnages</h1>
+      <div class="filters">
+        <input id="q" type="search" placeholder="Rechercher un nom, un alias, une franchise" aria-label="Rechercher">
+        <select id="f-franchise" aria-label="Franchise"></select>
+        <select id="f-theme" aria-label="Thème"></select>
+        <select id="f-rarete" aria-label="Rareté"></select>
+        <select id="f-tri" aria-label="Tri">
+          <option value="az">Ordre alphabétique</option>
+          <option value="rarete">Rareté décroissante</option>
+          <option value="annee">Plus anciens d'abord</option>
+        </select>
+      </div>
+      <p class="count" id="count"></p>
+      <div class="grid" id="grid-explorer"></div>
+    </section>
+
+    <section id="packs" class="view" hidden></section>
+
+    <section id="collection" class="view" hidden>
+      <h1>Ma collection</h1>
+      <div class="progress-big" id="progress"></div>
+      <div class="filters">
+        <select id="c-rarete" aria-label="Rareté"></select>
+        <select id="c-statut" aria-label="Statut">
+          <option value="tous">Toutes les cartes</option>
+          <option value="possedees">Possédées</option>
+          <option value="manquantes">Manquantes</option>
+          <option value="doublons">Doublons</option>
+        </select>
+        <button id="sell-dups" class="btn ghost">Vente rapide des doublons</button>
+      </div>
+      <div class="grid" id="grid-collection"></div>
+    </section>
+
+    <section id="marche" class="view" hidden></section>
+  </main>
+
+  <div class="modal" id="modal" hidden></div>
+  <div class="stage" id="stage" hidden></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="config.js"></script>
+  <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

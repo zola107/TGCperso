@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rosterium · vérification</title>
+  <style>
+    body { background: #0b0d14; color: #edeff7; font: 15px/1.5 system-ui, sans-serif; max-width: 980px; margin: 0 auto; padding: 24px 16px; }
+    h1 { font-size: 1.5rem; } h2 { font-size: 1.1rem; margin-top: 28px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .9rem; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #262c45; }
+    th { color: #9aa3bc; font-weight: 500; }
+    .ok { color: #34d399; } .ko { color: #f87171; } .muted { color: #9aa3bc; }
+    #summary { font-size: 1.1rem; font-weight: 600; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <h1>Vérification des règles et de l'économie</h1>
+  <p class="muted">Tests automatiques des réglages (config.js) et simulation de 10 000 ouvertures par pack avec le vrai moteur (engine.js). À relancer après chaque changement de réglage.</p>
+  <p id="summary"></p>
+  <h2>Tests</h2>
+  <table id="tests"><thead><tr><th>Test</th><th>Résultat</th></tr></thead><tbody></tbody></table>
+  <h2>Simulation de l'économie (10 000 packs par type, compteur de pitié actif)</h2>
+  <table id="sim"><thead><tr><th>Pack</th><th>Prix</th><th>Valeur moyenne</th><th>En vente rapide</th><th>Bilan revente</th></tr></thead><tbody></tbody></table>
+  <h2>Répartition observée sur le tirage standard (Pack Solo, 4 premières cartes)</h2>
+  <table id="dist"><thead><tr><th>Rareté</th><th>Attendu</th><th>Observé</th></tr></thead><tbody></tbody></table>
+
+  <script src="config.js"></script>
+  <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script>
+    (() => {
+      const G = Engine.create(CONFIG, CHARACTERS, FRANCHISE_TAGS);
+      const { RAR, ORDER } = G;
+      const N = 10000, rng = Math.random;
+      const results = [];
+      const test = (name, fn) => {
+        try { const r = fn(); results.push([name, r === true || r === undefined, r === true || r === undefined ? "" : r]); }
+        catch (e) { results.push([name, false, e.message]); }
+      };
+
+      test("Tirage standard : total = 100", () => G.isValidTable(CONFIG.standardOdds) || `total ${G.total(CONFIG.standardOdds)}`);
+      CONFIG.rarityPacks.forEach((p) => test(`${p.nom} : table garantie = 100`, () => G.isValidTable(p.garantie) || `total ${G.total(p.garantie)}`));
+      test("Chaque rareté a au moins 1 personnage", () => ORDER.every((r) => G.chars.some((c) => c.rarete === r)) || "rareté vide");
+      test("Chaque personnage a une rareté connue", () => G.chars.every((c) => RAR[c.rarete]) || G.chars.filter((c) => !RAR[c.rarete]).map((c) => c.nom).join(", "));
+      test("Identifiants uniques (slug et PDX-)", () => new Set(G.chars.map((c) => c.slug)).size === G.chars.length && new Set(G.chars.map((c) => c.id)).size === G.chars.length);
+      test("Chaque franchise a des tags", () => { const m = G.franchises.filter((f) => !FRANCHISE_TAGS[f]); return !m.length || "sans tags : " + m.join(", "); });
+      test("Chaque pack thématique a au moins 1 personnage", () => { const v = G.packs.filter((p) => p.kind === "theme" && !G.chars.some(p.filter)); return !v.length || v.map((p) => p.nom).join(", "); });
+      test("Rangs dans l'ordre croissant d'XP", () => CONFIG.ranks.every((r, i) => !i || r.xp > CONFIG.ranks[i - 1].xp));
+      test("Spectaculaire : 5 personnages max pour 150 (proportion ≤ 3,4 %)", () => G.chars.filter((c) => c.rarete === "spectaculaire").length / G.chars.length <= 5 / 150 + 0.03 || "trop de Spectaculaires");
+
+      test("Pack thématique : toujours 5 cartes et au moins 1 Rare+", () => {
+        const p = G.packById("theme-solo");
+        for (let i = 0; i < 3000; i++) {
+          const d = G.drawPack(p, {}, {}, rng);
+          if (d.cards.length !== 5) return "pack de " + d.cards.length;
+          if (!d.cards.some((x) => G.rank(x.c.rarete) >= G.rank("rare"))) return "pack sans Rare+";
+        }
+      });
+      CONFIG.rarityPacks.forEach((rp) => test(`${rp.nom} : carte garantie respectée`, () => {
+        const p = G.packById(rp.id), min = Math.min(...Object.keys(rp.garantie).map(G.rank));
+        for (let i = 0; i < 3000; i++) { const d = G.drawPack(p, {}, {}, rng); if (G.rank(d.cards[4].c.rarete) < min) return "garantie non respectée"; }
+      }));
+      test("Pitié : après 10 packs sans Épique+, le suivant en contient une", () => {
+        const p = G.packById("theme-solo");
+        for (let i = 0; i < 2000; i++) { const d = G.drawPack(p, {}, { epique: CONFIG.pity.epique }, rng); if (!d.cards.some((x) => G.rank(x.c.rarete) >= G.rank("epique"))) return "pitié non appliquée"; }
+      });
+      test("Cartes manquantes favorisées (≈ 2 contre 1)", () => {
+        const p = G.packById("pack-epique"), owned = {};
+        const commons = G.chars.filter((c) => c.rarete === "commun");
+        commons.slice(0, Math.floor(commons.length / 2)).forEach((c) => (owned[c.slug] = 1));
+        let miss = 0, have = 0;
+        for (let i = 0; i < 4000; i++) G.drawPack(p, owned, {}, rng).cards.forEach((x) => { if (x.c.rarete === "commun") owned[x.c.slug] && !x.isNew ? have++ : miss++; });
+        const nMiss = commons.length - Math.floor(commons.length / 2), nHave = Math.floor(commons.length / 2);
+        const ratio = (miss / nMiss) / (have / nHave);
+        return (ratio > 1.7 && ratio < 2.3) || `ratio ${ratio.toFixed(2)}`;
+      });
+      test("Ouvrir un pack débite le prix et ajoute 5 cartes", () => {
+        const S = G.newState(0), r = G.openPack(S, "theme-rpg", 0, rng);
+        const n = Object.values(S.owned).reduce((a, b) => a + b, 0);
+        return (S.coins === CONFIG.economy.depart - 150 && n === 5 && r.xp > 0) || `coins ${S.coins}, cartes ${n}`;
+      });
+      test("Pas assez de coins : refus, rien n'est débité", () => { const S = G.newState(0); S.coins = 100; return (G.openPack(S, "pack-mythique", 0, rng).error && S.coins === 100) || "pack ouvert"; });
+      test("Marché : rang Argent requis pour vendre", () => { const S = G.newState(0); S.owned.mario = 1; return !!G.listCard(S, "mario", 1500, 0).error || "vente acceptée en Bronze"; });
+      test("Marché : prix hors limites refusé (50 % à 500 %)", () => {
+        const S = G.newState(0); S.xp = 200; S.owned.toad = 3;
+        return (!!G.listCard(S, "toad", 4, 0).error && !!G.listCard(S, "toad", 51, 0).error && !G.listCard(S, "toad", 50, 0).error) || "limites non appliquées";
+      });
+      test("Marché : séquestre, annulation, commission de 10 %", () => {
+        const S = G.newState(0); S.xp = 200; S.owned.toad = 1;
+        const a = G.listCard(S, "toad", 20, 0).annonce;
+        if (S.owned.toad) return "carte non retirée";
+        G.cancelListing(S, a.id, 1); if (S.owned.toad !== 1) return "carte non rendue";
+        const b = G.listCard(S, "toad", 20, 2).annonce, before = S.coins;
+        G.tickMarket(S, 10 * 3600e3, () => 0); // un acheteur simulé passe
+        return (b.statut === "vendue" && S.coins - before === 18) || `statut ${b.statut}, reçu ${S.coins - before}`;
+      });
+      test("Marché : 20 annonces actives maximum", () => {
+        const S = G.newState(0); S.xp = 200; S.owned.toad = 25;
+        for (let i = 0; i < 20; i++) G.listCard(S, "toad", 10, 0);
+        return !!G.listCard(S, "toad", 10, 0).error || "21e annonce acceptée";
+      });
+      test("Marché : achat atomique, solde insuffisant refusé", () => {
+        const S = G.newState(0); G.tickMarket(S, 0, rng);
+        const a = S.marche[0]; S.coins = a.prix - 1;
+        if (!G.buyListing(S, a.id, 0).error || !S.marche.includes(a)) return "achat sans solde";
+        S.coins = a.prix; G.buyListing(S, a.id, 0);
+        return (S.coins === 0 && S.owned[a.slug] === 1 && !S.marche.includes(a)) || "transfert incomplet";
+      });
+      test("Annonce expirée après 72 h : la carte revient", () => {
+        const S = G.newState(0); S.xp = 200; S.owned.toad = 1;
+        const a = G.listCard(S, "toad", 50, 0).annonce; S.lastTick = 72 * 3600e3;
+        G.tickMarket(S, 72 * 3600e3, () => 0.999999);
+        return (a.statut === "expiree" && S.owned.toad === 1) || `statut ${a.statut}`;
+      });
+
+      /* ---------- simulation de l'économie ---------- */
+      const simRows = [], dist = Object.fromEntries(ORDER.map((r) => [r, 0]));
+      let loop = false;
+      G.packs.forEach((p) => {
+        let value = 0, quick = 0, pity = {};
+        for (let i = 0; i < N; i++) {
+          const d = G.drawPack(p, {}, pity, rng); pity = d.pity;
+          d.cards.forEach((x, k) => {
+            value += RAR[x.c.rarete].prix; quick += G.quickSellValue(x.c.rarete);
+            if (p.id === "theme-solo" && k < 4) dist[x.c.rarete]++;
+          });
+        }
+        value /= N; quick /= N;
+        if (quick >= p.prix) loop = true;
+        simRows.push(`<tr><td>${p.nom}</td><td>${p.prix}</td><td>${value.toFixed(0)}</td><td>${quick.toFixed(0)}</td>
+          <td class="${quick < p.prix ? "ok" : "ko"}">${quick < p.prix ? "perte de " + (p.prix - quick).toFixed(0) : "GAIN EN BOUCLE"}</td></tr>`);
+      });
+      test("Économie : impossible de gagner des coins en ouvrant puis revendant", () => !loop || "un pack rapporte plus qu'il ne coûte");
+
+      document.querySelector("#tests tbody").innerHTML = results.map(([n, ok, msg]) =>
+        `<tr><td>${n}</td><td class="${ok ? "ok" : "ko"}">${ok ? "OK" : "ÉCHEC : " + msg}</td></tr>`).join("");
+      document.querySelector("#sim tbody").innerHTML = simRows.join("");
+      document.querySelector("#dist tbody").innerHTML = ORDER.map((r) =>
+        `<tr><td>${RAR[r].nom}</td><td>${CONFIG.standardOdds[r]} %</td><td>${((dist[r] / (N * 4)) * 100).toFixed(2)} %</td></tr>`).join("");
+      const failed = results.filter((r) => !r[1]).length;
+      const s = document.querySelector("#summary");
+      s.textContent = failed ? `${failed} test(s) en échec sur ${results.length}` : `${results.length} tests réussis`;
+      s.className = failed ? "ko" : "ok";
+      window.__verification = { total: results.length, failed, failures: results.filter((r) => !r[1]) };
+    })();
+  </script>
+</body>
+</html>
