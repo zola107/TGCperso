@@ -23,18 +23,20 @@ Un joueur possède des **exemplaires** : en base, une ligne `(utilisateur, carte
 | Ordre | Id | Nom | Couleur | Prix de référence | Effets visuels |
 |---|---|---|---|---|---|
 | 1 | `commun` | Commun | `#9aa4b2` gris | 5 | Cadre simple |
-| 2 | `peucommun` | Peu commun | `#34d399` vert | 10 | Cadre + liseré lumineux |
-| 3 | `rare` | Rare | `#3b82f6` bleu | 25 | Lueur bleue |
-| 4 | `epique` | Épique | `#a855f7` violet | 60 | Lueur + reflet qui suit le curseur |
-| 5 | `legendaire` | Légendaire | `#f59e0b` or | 150 | Reflet + particules dorées |
-| 6 | `mythique` | Mythique | `#f43f5e` rouge-rose | 500 | Bordure animée + flash à l'ouverture |
-| 7 | `spectaculaire` | Spectaculaire | prisme (`#22e5ff` → `#ff2bd6` → or) | 1500 | Holographie plein cadre, bordure arc-en-ciel animée, animation d'ouverture dédiée |
+| 2 | `peucommun` | Peu commun | `#34d399` vert | 12 | Cadre + liseré lumineux |
+| 3 | `rare` | Rare | `#3b82f6` bleu | 40 | Lueur bleue |
+| 4 | `epique` | Épique | `#a855f7` violet | 150 | Lueur + reflet qui suit le curseur |
+| 5 | `legendaire` | Légendaire | `#f59e0b` or | 600 | Reflet + particules dorées |
+| 6 | `mythique` | Mythique | `#f43f5e` rouge-rose | 3 000 | Bordure animée + flash à l'ouverture |
+| 7 | `spectaculaire` | Spectaculaire | prisme (`#22e5ff` → `#ff2bd6` → or) | 25 000 | Holographie plein cadre, bordure arc-en-ciel animée, animation d'ouverture dédiée |
 
 ### Probabilités du tirage standard (par carte)
 
 | Commun | Peu commun | Rare | Épique | Légendaire | Mythique | Spectaculaire | **Total** |
 |---|---|---|---|---|---|---|---|
-| 45 % | 25 % | 15 % | 9 % | 4,5 % | 1,2 % | 0,3 % | **100 %** |
+| 55 % | 26 % | 12,5 % | 4,6 % | 1,5 % | 0,37 % | 0,03 % | **100 %** |
+
+En moyenne : une Épique tous les ~4 packs, une Légendaire tous les ~13, une Mythique tous les ~54, une Spectaculaire tous les ~670. **Créer le manque crée l'envie** : une haute rareté doit être un événement.
 
 **Règle absolue :** chaque table de probabilités doit totaliser exactement 100. Un test automatisé le vérifie, et l'admin refuse d'enregistrer une table invalide.
 
@@ -95,151 +97,111 @@ Les décisions de l'équipe sont dans `scripts/rarete_manuelle.json` : raretés 
 
 ## 4. Packs
 
-Deux familles de packs, toutes de **5 cartes**, toujours des cartes de **personnages**. Le thème indique seulement l'origine des personnages.
+Tous les packs contiennent **5 cartes de personnages**. Les cartes que le joueur n'a pas encore sortent deux fois plus souvent (à rareté égale). Les probabilités de chaque pack sont affichées sur sa fiche. **Tout le tirage se fait côté serveur** (voir `architecture.md`).
 
-### 4.1 Packs thématiques (150 coins)
-
-Ils tirent uniquement parmi les personnages qui ont le tag correspondant, avec les probabilités standard et **au moins 1 Rare ou mieux**.
-
-| Tag | Pack | Couleur |
+| Pack | Prix | Contenu |
 |---|---|---|
-| `solo` | Solo & narratif | `#8b5cf6` |
-| `multi` | Multijoueur | `#22e5ff` |
-| `rpg` | RPG | `#34d399` |
-| `combat` | Combat | `#f43f5e` |
-| `horreur` | Horreur | `#b91c1c` |
-| `plateforme` | Plateforme & arcade | `#f59e0b` |
-| `nintendo` | Nintendo | `#ef4444` |
-| `playstation` | PlayStation | `#3b82f6` |
-| `xbox` | Xbox | `#22c55e` |
-| `retro` | Rétro (avant 2000) | `#ff2bd6` |
+| Thématique (10 thèmes) | 250 | 5 cartes du thème, au moins 1 Rare ou mieux |
+| Épique | 800 | 4 standard + 1 garantie : Épique 92 · Légendaire 7 · Mythique 0,9 · Spectaculaire 0,1 |
+| Légendaire | 2 000 | 4 standard + 1 garantie : Légendaire 93 · Mythique 6,5 · Spectaculaire 0,5 |
+| Mythique | 5 000 | 4 standard + 1 garantie : Légendaire 80 · Mythique 19 · Spectaculaire 1 (une Légendaire garantie, pas une Mythique) |
+| **Or** (rang Or requis) | 600 | 4 standard + 1 garantie : Épique 88 · Légendaire 9,5 · Mythique 2,2 · Spectaculaire 0,3 |
+| **Diamant** (rang Diamant requis) | 1 800 | 4 standard + 1 garantie : Légendaire 86 · Mythique 12,5 · Spectaculaire 1,5 |
+| **Champion** (rang Champion requis) | 8 000 | 4 standard + 1 garantie : Mythique 95 · Spectaculaire 5 |
 
-Les tags viennent de la franchise (`FRANCHISE_TAGS` dans `build_site_data.py`) et `retro` est ajouté automatiquement si l'année < 2000. Plus tard : tags éditables par personnage dans l'admin.
+Les packs de rang portent l'emblème de leur rang sur le sachet et restent verrouillés tant que le joueur n'a pas ce rang (dans la saison en cours).
 
-**Si une rareté n'a aucun personnage éligible dans un thème**, on retombe sur tout le catalogue de cette rareté (et on l'affiche dans la description du pack). Mieux : l'admin avertit quand un pack a une rareté vide.
+### Surprises
 
-À ajouter plus tard : PC & indé, Monde ouvert, Esport, packs événementiels (anniversaire d'une franchise, Halloween = horreur).
+- **Holo** : chaque carte a 1 % de chances de sortir en version holo (film irisé). Une holo vaut 5 fois le prix de référence et n'est jamais convertie en éclats.
+- **God pack** : 1 pack sur 5 000 contient 5 cartes Légendaire ou mieux (Légendaire 80 · Mythique 18 · Spectaculaire 2).
+- **Éditions numérotées** : chaque Spectaculaire n'existe qu'en **100 exemplaires**, numérotés (« n° 37/100 »). En vrai projet, le compteur est global (tous les joueurs).
+- **Compteur de pitié** : après 15 packs sans Épique ou mieux, la carte garantie passe Épique ; après 60 packs sans Légendaire ou mieux, elle passe Légendaire.
 
-### 4.2 Packs de rareté
+### Ouverture
 
-4 cartes tirées avec les probabilités standard + **1 carte « garantie »** tirée avec une table spéciale :
-
-| Pack | Prix | Carte garantie (table de la 5e carte) | Total |
-|---|---|---|---|
-| **Épique** | 300 | Épique 85 · Légendaire 12 · Mythique 2,5 · Spectaculaire 0,5 | 100 |
-| **Légendaire** | 450 | Légendaire 90 · Mythique 8,5 · Spectaculaire 1,5 | 100 |
-| **Mythique** | 750 | Légendaire 70 · Mythique 25 · Spectaculaire 5 | 100 |
-
-Le pack Mythique **garantit une Légendaire** mais **pas une Mythique** : c'est voulu (« on n'est pas sûr d'en avoir, mais on a forcément une Légendaire »). Le libellé doit le dire clairement.
-
-### 4.3 Règles communes
-
-- Les **cartes manquantes sont favorisées** à rareté égale (poids 2 contre 1).
-- **Compteur de pitié** (V2) : au bout de 10 packs sans Épique+, la carte garantie passe Épique ; au bout de 40 packs sans Légendaire+, elle passe Légendaire.
-- Les probabilités de chaque pack sont **affichées** sur sa page.
-- **Tout le tirage se fait côté serveur** (voir `architecture.md`).
-
-### 4.4 Ouverture
-
-1. Le joueur clique sur « Ouvrir » : le serveur débite, tire et enregistre, puis renvoie le résultat.
-2. Animation : le pack s'ouvre, 5 cartes face cachée, le joueur les retourne une à une (ou « Tout retourner »).
-3. La couleur du dos de carte trahit légèrement la rareté juste avant le retournement (suspense).
-4. Badges « Nouveau » ou « Doublon ».
-5. Récapitulatif : XP gagnée, nouvelles cartes, bouton « Ouvrir un autre ».
+1. On déchire le haut du sachet en glissant le doigt ou la souris (ou bouton « Ouvrir sans glisser »).
+2. Les cartes sortent du sachet face cachée ; on les retourne une à une (ou « Tout retourner »).
+3. Juste avant le retournement, le dos prend la couleur de la rareté ; halo pour Épique et plus, reflet pour Rare et plus.
+4. Badges « Nouveau », « Doublon », « Holo », « +X éclats » ; numéro d'édition sur les Spectaculaires.
+5. Récapitulatif : XP gagnée, nouvelles cartes, holo, god pack, éclats, bouton « Ouvrir un autre ».
 
 ---
 
-## 5. Économie (coins)
+## 5. Économie
 
-Une seule monnaie gratuite : les **coins**. Aucun achat avec de l'argent réel.
+Une seule monnaie gratuite, les **coins**, volontairement rares. Aucun achat avec de l'argent réel.
 
 | Source | Gain |
 |---|---|
-| Départ | 600 |
-| Connexion quotidienne | 250 |
-| Bonus de la semaine (1re connexion de la semaine) | 500 |
-| Vente rapide d'une carte | 30 % du prix de référence |
-| Vente au marché | prix fixé par le vendeur − 10 % de commission |
-| Succès, montées de rang (V2) | variable |
+| Départ | 500 |
+| Connexion quotidienne | 50 |
+| Bonus de la semaine (1re connexion) | 200 |
+| Défis du jour (3 par jour) | 15 à 40 chacun |
+| Défis de la semaine (3 par semaine) | 150 à 250, ou un bon de pack |
+| Succès (une seule fois chacun) | 100 à 20 000, ou un bon de pack |
+| Vente rapide | 20 % du prix de référence |
+| Vente au marché | prix libre − 10 % de commission |
 
 ### Packs gratuits
 
-| Pack | Fréquence | Contenu |
-|---|---|---|
-| **Pack Aléatoire** | +1 toutes les 4 h, 3 en stock max (6 par jour) | Tout le catalogue, tirage standard, au moins 1 Rare. Mythique 1,2 % et Spectaculaire 0,3 % par carte |
-| **Pack du jour** | 1 par jour | Un pack thématique offert ; le thème change chaque jour à minuit |
-| **Bon de série** | tous les 7 jours de connexion d'affilée | 1 Pack Épique offert. Un jour manqué remet la série à zéro |
-
-Journée type d'un joueur assidu : 6 Packs Aléatoires + 1 pack du jour + ~2 packs thématiques achetés avec les coins ≈ **9 packs par jour** (calcul détaillé dans `prototype/verification.html`). Les packs gratuits comptent pour le compteur de pitié.
-
-| Dépense | Coût |
+| Pack | Fréquence |
 |---|---|
-| Pack thématique | 150 |
-| Pack Épique / Légendaire / Mythique | 300 / 450 / 750 |
-| Achat d'une carte au marché | prix du vendeur |
+| Pack Aléatoire (tout le catalogue, au moins 1 Rare) | +1 toutes les 8 h, 2 en stock max |
+| Pack du jour (un thème qui change à minuit) | 1 par jour |
+| Bon de série (Pack Épique) | tous les 7 jours de connexion d'affilée |
 
-### Équilibre (vérifié)
+Journée type d'un joueur assidu : 3 Packs Aléatoires + 1 pack du jour + ~1 pack acheté avec les coins (~210 coins par jour, dont ~130 des défis) ≈ **5 packs par jour**. Un Pack Légendaire demande donc une dizaine de jours d'économies.
 
-Valeur moyenne d'une carte standard : 0,45×5 + 0,25×10 + 0,15×25 + 0,09×60 + 0,045×150 + 0,012×500 + 0,003×1500 ≈ **31 coins**.
+### Exemplaires et éclats
 
-- Pack thématique : 5 × 31 ≈ **156** de valeur pour 150 coins. Revendu en vente rapide : ≈ 47 coins. **Impossible de gagner des coins en boucle** en ouvrant et revendant.
-- Pack Épique ≈ 214 de valeur pour 300, Légendaire ≈ 325 pour 450, Mythique ≈ 430 pour 750 : on paie la garantie. Le pack Mythique est le moins rentable : à surveiller.
-- Les **puits de coins** (commission de 10 %, vente rapide à 30 %) empêchent l'inflation.
+- Un joueur garde **au maximum 5 exemplaires** de chaque carte (hors holo). Au-delà, la copie est convertie en **éclats** : Commun 2 · Peu commun 5 · Rare 15 · Épique 60 · Légendaire 250 · Mythique 1 200 · Spectaculaire 10 000.
+- **Atelier** : les éclats fabriquent une carte manquante de petite rareté (Commun 60 · Peu commun 150 · Rare 500). Les hautes raretés ne se fabriquent jamais : elles se tirent ou s'achètent au marché.
 
-À faire : script `scripts/simulate-economy` qui simule 10 000 ouvertures et vérifie ces chiffres après chaque changement de réglage.
+### Équilibre (vérifié par `prototype/verification.html`)
+
+Aucun pack ne rapporte plus qu'il ne coûte en revente rapide (exemples : Thématique 250 → ~55, Légendaire 2 000 → ~225, Mythique 5 000 → ~310). Les puits de coins (commission, vente rapide à 20 %, prix des packs) empêchent l'inflation.
 
 ---
 
 ## 6. Marché entre joueurs
 
-### Fonctionnement
+L'objectif final : **un marché où les cartes prennent de la valeur parce qu'elles sont rares et désirées.**
 
-1. **Vendre** : le joueur choisit une carte (doublon conseillé), fixe un prix, la carte est **retirée de son inventaire** et mise en vente (séquestre).
-2. **Prix** : un prix de référence par rareté est proposé par défaut. Le vendeur peut le modifier entre **50 %** et **1000 %** du prix de référence (prototype). Recommandé pour la vraie version : plafond à **500 %** pour limiter les transferts entre comptes.
-3. **Acheter** : l'acheteur paie, reçoit la carte, le vendeur reçoit le prix − 10 %.
-4. **Annuler** : la carte revient dans l'inventaire.
-5. **Vente rapide** : vendre instantanément au site à 30 % du prix de référence.
+1. **Vendre** : le joueur choisit une carte (normale ou holo) et fixe **un prix libre, sans plafond** (on peut vendre une carte 10 000 000 si on veut). La carte est retirée de son inventaire pendant la vente (séquestre).
+2. **Valeur de marché** : moyenne des 5 dernières ventes de la carte (sinon le prix de référence). Chaque fiche affiche les dernières ventes.
+3. **Acheter** : l'acheteur paie, reçoit la carte (sauf s'il a déjà 5 exemplaires), le vendeur reçoit le prix − 10 %.
+4. **Annuler** : la carte revient. Une annonce expire au bout de **72 h**.
+5. **Vente rapide** : vendre tout de suite au site, à 20 % du prix de référence.
 
-### Écrans
+Règles anti-abus (vraie version) : transaction atomique côté serveur, impossible d'acheter sa propre annonce, **20 annonces actives** max, rang **Argent** minimum pour vendre, compte de plus de 3 jours, journal de toutes les transactions. À venir : enchères, offres d'achat, alerte « liste de souhaits ».
 
-- **Acheter** : grille d'annonces, filtres (rareté, franchise, prix max, cartes manquantes uniquement), tri (prix, récentes).
-- **Mes ventes** : annonces actives, vendues, expirées.
-- **Prix de référence** : tableau par rareté + historique des dernières ventes d'une carte (V2).
-
-### Règles anti-abus (vraie version)
-
-- Transaction **atomique** côté serveur : vérifier le solde, verrouiller l'annonce, transférer.
-- Impossible d'acheter sa propre annonce.
-- Max **20 annonces actives** par joueur, durée **72 h**.
-- Compte de plus de 3 jours et rang Argent minimum pour vendre.
-- Journal de toutes les transactions (`CoinTransaction`).
-
-Dans le prototype, sans serveur, le marché est simulé avec des vendeurs fictifs.
+Dans le prototype, sans serveur, les autres vendeurs et acheteurs sont simulés.
 
 ---
 
-## 7. Rangs des joueurs
+## 7. Rangs des joueurs (ranked)
 
-Distincts des raretés de cartes. Les noms reprennent les paliers classiques des jeux compétitifs ; les emblèmes sont **originaux** (voir `design.md`).
+Les noms reprennent les paliers classiques des jeux compétitifs ; les emblèmes sont **originaux**. Paliers exponentiels : atteindre Champion demande **des milliers de packs**.
 
 | Rang | XP |
 |---|---|
 | Bronze | 0 |
-| Argent | 150 |
-| Or | 400 |
-| Platine | 900 |
-| Diamant | 1800 |
-| Élite | 3200 |
-| Champion | 5000 |
+| Argent | 1 000 |
+| Or | 4 000 |
+| Platine | 12 000 |
+| Diamant | 30 000 |
+| Élite | 70 000 |
+| Champion | 150 000 |
 
-Chaque rang (sauf Champion) est découpé en **3 divisions** de même taille : III → II → I. Exemple : Bronze III de 0 à 49 XP, Bronze II de 50 à 99, Bronze I de 100 à 149, puis Argent III. Les emblèmes de rang et de rareté sont dessinés pour le projet (`prototype/emblems.js`).
+Chaque rang (sauf Champion) est découpé en **3 divisions** de même taille : III → II → I.
 
 | Gain d'XP | XP |
 |---|---|
-| Nouvelle carte | 10 (bonus selon rareté en V2) |
-| Doublon | 2 |
-| Consulter une nouvelle fiche (1 fois par personnage) | 1 |
-| Compléter une franchise | 50 |
-| Succès | 20 à 200 |
+| Nouvelle carte | Commun 4 · Peu commun 6 · Rare 12 · Épique 30 · Légendaire 80 · Mythique 250 · Spectaculaire 1 200 |
+| Doublon | 1 |
+| Lire une nouvelle fiche | 1 |
+| Compléter une franchise | 150 |
+| Défis et succès | 10 à 10 000 |
 
-On récompense la **découverte et la complétion**, pas le temps passé ni la vente en masse. La vente au marché ne donne pas d'XP.
+**Saisons** de 90 jours : à chaque nouvelle saison, l'XP classée est divisée par 2 et le rang atteint est gardé dans l'historique du joueur. Les packs de rang suivent le rang de la saison en cours. On récompense la découverte, la complétion et les défis ; la vente au marché ne donne pas d'XP.

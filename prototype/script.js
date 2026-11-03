@@ -50,6 +50,7 @@
   const span = (ms) => {
     if (ms <= 0) return "maintenant";
     const h = Math.floor(ms / 36e5), m = Math.floor((ms % 36e5) / 6e4), s = Math.floor((ms % 6e4) / 1e3);
+    if (h >= 48) return `${Math.floor(h / 24)} j ${h % 24} h`;
     return h ? `${h} h ${String(m).padStart(2, "0")}` : m ? `${m} min ${String(s).padStart(2, "0")}` : `${s} s`;
   };
   // compte à rebours qui se met à jour tout seul (voir l'horloge en bas)
@@ -62,21 +63,27 @@
   // les images Wikipédia (souvent avec un fond) remplissent la carte.
   // Si l'image ne charge pas, l'initiale du personnage la remplace.
   const isCutout = (src) => src.includes("official-artwork") || /\.svg/i.test(src);
-  const artImg = (c) => `<img class="${isCutout(c.image) ? "cutout" : "photo"}" src="${c.image}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.nextElementSibling.hidden=false;this.remove()">`;
+  // copie locale (scripts/cache_images.py) si elle existe, sinon l'image d'origine
+  const LOCAL = typeof LOCAL_IMAGES !== "undefined" ? LOCAL_IMAGES : {};
+  const artImg = (c) => `<img class="${isCutout(c.image) ? "cutout" : "photo"}" src="${LOCAL[c.slug] || c.image}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.nextElementSibling.hidden=false;this.remove()">`;
   function cardHTML(c, o = {}) {
     const locked = o.locked, qty = S.owned[c.slug] || 0, img = !locked && c.image;
-    const badge = o.isNew ? `<span class="badge">Nouveau</span>` : o.dup ? `<span class="badge dup">Doublon</span>` : "";
+    // holo : la carte tirée est brillante, ou (dans la collection) on en possède au moins une
+    const holo = !locked && (o.holo || (!o.noQty && G.holoCount(S, c.slug) > 0));
+    const badge = o.converti ? `<span class="badge conv">+${num(o.converti)} éclats</span>`
+      : o.isNew ? `<span class="badge">Nouveau</span>` : o.dup ? `<span class="badge dup">Doublon</span>` : "";
     const q = !o.noQty && qty > 1 ? `<span class="qty">×${qty}</span>` : "";
-    return `<div class="card-wrap"><div class="card${locked ? " locked" : ""}" data-r="${c.rarete}" ${locked ? "" : `data-slug="${c.slug}" tabindex="0"`}>
+    const serial = o.serial ? `#${o.serial}/${CONFIG.tirageLimite[c.rarete]}` : "";
+    return `<div class="card-wrap"><div class="card${locked ? " locked" : ""}${holo ? " holo" : ""}" data-r="${c.rarete}" ${locked ? "" : `data-slug="${c.slug}" tabindex="0"`}>
       <div class="card-in">
         <div class="art" style="--h:${hue(c.franchise)}">${img ? artImg(c) : ""}<span class="initial" ${img ? "hidden" : ""}>${locked ? "?" : c.nom[0]}</span></div>
         <div class="card-head">${gem(c.rarete, "gem card-gem")}<span class="card-id">${no(c)}</span></div>
-        ${badge}${q}
+        ${badge}${q}${holo ? `<span class="holo-tag">Holo</span>` : ""}
         <div class="plate">
           <div class="card-name">${locked ? "???" : c.nom}</div>
           <div class="card-sub">${locked ? RAR[c.rarete].nom : c.franchise}</div>
         </div>
-        <div class="card-foot"><span>${RAR[c.rarete].nom}</span><span>${c.annee}</span></div>
+        <div class="card-foot"><span>${RAR[c.rarete].nom}</span><span class="${serial ? "serial" : ""}">${serial || c.annee}</span></div>
       </div></div></div>`;
   }
   // vignette carrée pour les listes (Codex, Marché)
@@ -105,6 +112,7 @@
     const k = G.rankInfo(S.xp), f = G.freeStatus(S, now()), offers = freeCount();
     $("#wallet").innerHTML = `
       <div class="w-row w-coins" title="Coins"><span class="w-label">Coins</span><b>${coin(S.coins)}</b></div>
+      <div class="w-row w-coins w-eclats" title="Éclats (copies en trop)"><span class="w-label">Éclats</span><b><span class="shard" aria-hidden="true"></span>${num(S.eclats)}</b></div>
       <a class="w-row w-rank" href="#hub" title="${num(S.xp)} XP">
         ${rankBadge(k.r, "rank-emblem w-emblem")}
         <span class="w-rank-text"><span class="w-label">Rang</span><b>${k.label}</b>
@@ -116,6 +124,7 @@
         <span><span class="w-label">Pack Aléatoire</span><b>${f.stock ? `${f.stock} à ouvrir` : `dans ${until(f.next)}`}</b></span>
       </a>`;
     $("#nav-free").hidden = !offers;
+    $("#nav-defis").hidden = !G.claimable(S, now());
   }
   // nombre de récompenses en attente (pastille sur « Boutique »)
   function freeCount() {
@@ -179,10 +188,10 @@
   /* ============================================================
      ROUTEUR (navigation par #ancres)
      ============================================================ */
-  const VIEWS = ["hub", "boutique", "classeur", "codex", "marche"];
+  const VIEWS = ["hub", "defis", "boutique", "classeur", "codex", "marche"];
   const OLD = { accueil: "hub", packs: "boutique", collection: "classeur", explorer: "codex" };
   const current = () => VIEWS.find((x) => !$("#" + x).hidden);
-  const RENDER = () => ({ hub: renderHub, boutique: renderShop, classeur: renderBinder, codex: renderCodex, marche: renderMarket });
+  const RENDER = () => ({ hub: renderHub, defis: renderDefis, boutique: renderShop, classeur: renderBinder, codex: renderCodex, marche: renderMarket });
   function route() {
     const id = (location.hash || "#hub").slice(1);
     const v = VIEWS.includes(id) ? id : OLD[id] || "hub";
@@ -205,7 +214,7 @@
   function renderHub() {
     const t = now(), day = Math.floor(t / 864e5), list = G.chars;
     const spot = list[(day * 7) % list.length];
-    const k = G.rankInfo(S.xp);
+    const k = G.rankInfo(S.xp), season = G.seasonInfo(t);
     const have = list.filter((c) => S.owned[c.slug]).length;
     const daily = dailyBlock();
     const recent = S.recent.map((s) => G.bySlug[s]).filter(Boolean);
@@ -215,6 +224,10 @@
       <div class="hub">
         <section class="panel p-free">${freeBlock(true)}</section>
         <section class="panel p-daily">${daily}</section>
+        <section class="panel p-defis">
+          <div class="panel-head"><p class="label">Défis du jour</p><a href="#defis">Tous les défis et succès</a></div>
+          <div class="defis-list">${G.defisList(S, t).jour.map(defiRow).join("")}</div>
+        </section>
 
         <section class="panel p-spot">
           <div class="spot-card">${cardHTML(spot, { noQty: true })}</div>
@@ -228,13 +241,14 @@
         </section>
 
         <section class="panel p-rank">
-          <div class="panel-head"><p class="label">Parcours classé</p><b>${k.label}</b></div>
+          <div class="panel-head"><p class="label">Parcours classé · Saison ${season.numero}</p><b>${k.label}</b></div>
           <ol class="ladder">${CONFIG.ranks.map((r, i) => `
             <li class="${i < k.i ? "done" : i === k.i ? "here" : ""}">
               ${rankBadge(r)}<span>${r.nom}</span><small>${num(r.xp)}</small>
             </li>`).join("")}</ol>
           <div class="bar thick"><i style="width:${k.p * 100}%"></i></div>
-          <p class="muted small">${k.next ? `${num(k.to - S.xp)} XP avant ${k.next}` : "Rang maximum atteint"} · nouvelle carte +${CONFIG.xp.nouvelle} XP, doublon +${CONFIG.xp.doublon}, franchise complétée +${CONFIG.xp.franchise}</p>
+          <p class="muted small">${k.next ? `${num(k.to - S.xp)} XP avant ${k.next}` : "Rang maximum atteint"} · fin de saison dans ${until(season.fin)} (l'XP classée est divisée par 2)</p>
+          <p class="muted small">Nouvelle carte : de +${CONFIG.xp.nouvelle.commun} XP (Commune) à +${num(CONFIG.xp.nouvelle.spectaculaire)} XP (Spectaculaire) · doublon +${CONFIG.xp.doublon} · franchise complétée +${CONFIG.xp.franchise}</p>
         </section>
 
         <section class="panel p-coll">
@@ -257,6 +271,38 @@
         </section>
       </div>
       ${tickerHTML()}`;
+  }
+
+  /* ============================================================
+     06 · DÉFIS (du jour, de la semaine, succès)
+     ============================================================ */
+  const rewardText = (r) => [r.coins && coin(r.coins), r.eclats && `<span class="shard"></span>${num(r.eclats)} éclats`,
+    r.bon && `bon ${G.packById(r.bon).nom}`, r.xp && `${num(r.xp)} XP`].filter(Boolean).join(" · ");
+  function defiRow(x) {
+    return `<div class="defi${x.claimed ? " claimed" : x.done ? " done" : ""}">
+      <div class="defi-txt"><b>${x.def.nom}</b><small>${rewardText(x.def.recompense)}</small></div>
+      <div class="defi-bar"><i style="width:${(x.progress / x.def.cible) * 100}%"></i></div>
+      <span class="mono small">${num(x.progress)}/${num(x.def.cible)}</span>
+      ${x.claimed ? `<span class="defi-ok" aria-label="Récupéré">✓</span>` : x.done ? `<button class="btn sm" data-defi="${x.key}">Récupérer</button>` : `<span class="defi-wait">En cours</span>`}
+    </div>`;
+  }
+  function renderDefis() {
+    const t = now(), l = G.defisList(S, t), n = G.claimable(S, t);
+    const monday = (() => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d.getTime(); })();
+    const got = l.succes.filter((x) => x.claimed).length;
+    $("#defis").innerHTML = head(6, "Défis", "Défis & succès", n ? `<span class="pill">${n} récompense${n > 1 ? "s" : ""} à récupérer</span>` : "") + `
+      <section class="panel defis-block">
+        <div class="panel-head"><p class="label">Aujourd'hui</p><span class="muted small">nouveaux défis dans ${until(nextMidnight())}</span></div>
+        <div class="defis-list">${l.jour.map(defiRow).join("")}</div>
+      </section>
+      <section class="panel defis-block">
+        <div class="panel-head"><p class="label">Cette semaine</p><span class="muted small">nouveaux défis dans ${until(monday)}</span></div>
+        <div class="defis-list">${l.semaine.map(defiRow).join("")}</div>
+      </section>
+      <section class="panel defis-block">
+        <div class="panel-head"><p class="label">Succès</p><span class="muted small">${got} / ${l.succes.length} débloqués · une seule fois chacun</span></div>
+        <div class="defis-list">${[...l.succes].sort((a, b) => (b.done && !b.claimed) - (a.done && !a.claimed) || a.claimed - b.claimed).map(defiRow).join("")}</div>
+      </section>`;
   }
 
   function freeBlock(compact) {
@@ -330,10 +376,11 @@
     const c = G.bySlug[slug]; if (!c) return;
     if (G.viewSheet(S, slug)) persist();
     const same = G.chars.filter((x) => x.franchise === c.franchise && x !== c);
-    const qty = S.owned[c.slug] || 0;
+    const qty = S.owned[c.slug] || 0, holo = G.holoCount(S, c.slug), plain = qty - holo;
+    const serials = S.serials[c.slug] || [], histo = S.histo[c.slug] || [];
     const tags = c.tags.map((t) => CONFIG.themePacks.list.find((x) => x.tag === t)).filter(Boolean);
     showModal(`
-      <div class="sheet-card">${cardHTML(c, { noQty: true })}</div>
+      <div class="sheet-card">${cardHTML(c, { noQty: true, holo: holo > 0 })}</div>
       <div class="sheet-body">
         <p class="kicker"><span>${no(c)}</span>${c.franchise}</p>
         <h2>${c.nom}</h2>
@@ -343,13 +390,18 @@
           <dt>Rôle</dt><dd>${c.role}</dd>
           <dt>Alias</dt><dd>${c.alias.length ? c.alias.join(", ") : "—"}</dd>
           <dt>Première apparition</dt><dd>${c.jeu}, ${c.annee}</dd>
-          <dt>Exemplaires</dt><dd>${qty ? `×${qty}` : "pas encore obtenue"}</dd>
-          <dt>Prix de référence</dt><dd>${coin(RAR[c.rarete].prix)}</dd>
-          ${c.source ? `<dt>Source</dt><dd><a class="src" href="${c.source}" target="_blank" rel="noopener">${c.source.includes("pokeapi") ? "PokéAPI" : "Wikipédia"} ↗</a></dd>` : ""}
+          <dt>Exemplaires</dt><dd>${qty ? `×${plain} / ${CONFIG.maxExemplaires}${holo ? ` · ${holo} holo` : ""}` : "pas encore obtenue"}</dd>
+          ${serials.length ? `<dt>Édition limitée</dt><dd class="serial">${serials.map((n) => `n° ${n}/${CONFIG.tirageLimite[c.rarete]}`).join(", ")}</dd>` : ""}
+          <dt>Valeur de marché</dt><dd>${coin(G.marketValue(S, c.slug))}${histo.length ? "" : ` <small class="muted">(prix de référence, aucune vente)</small>`}${holo ? ` · holo ${coin(G.marketValue(S, c.slug, true))}` : ""}</dd>
+          ${histo.length ? `<dt>Dernières ventes</dt><dd class="histo">${histo.slice(0, 6).map((h) => `<span>${coin(h.prix)}${h.holo ? " holo" : ""}</span>`).join("")}</dd>` : ""}
+          ${c.source ? `<dt>Source</dt><dd><a class="src" href="${c.source}" target="_blank" rel="noopener">${c.source.includes("pokeapi") ? "PokéAPI" : c.source.includes("fandom.com") ? "Wiki de fans" : "Wikipédia"} ↗</a></dd>` : ""}
         </dl>
-        ${qty ? `<div class="row">
+        ${plain ? `<div class="row">
           <button class="btn" data-sell="${c.slug}">Mettre en vente</button>
           <button class="btn ghost" data-quick="${c.slug}">Vente rapide · +${coin(G.quickSellValue(c.rarete))}</button></div>` : ""}
+        ${holo ? `<div class="row">
+          <button class="btn" data-sell="${c.slug}" data-holo="1">Vendre la holo</button>
+          <button class="btn ghost" data-quick="${c.slug}" data-holo="1">Vente rapide holo · +${coin(G.quickSellValue(c.rarete, true))}</button></div>` : ""}
         ${same.length ? `<p class="label">Même franchise</p><div class="chips">${same.map((x) => `<button data-open="${x.slug}">${gem(x.rarete)}${x.nom}</button>`).join("")}</div>` : ""}
       </div>`, "sheet-char");
   }
@@ -365,6 +417,7 @@
   const pityText = () => Object.entries(CONFIG.pity).map(([r, n]) => `après ${n} packs sans ${RAR[r].nom} ou mieux, la carte garantie passe ${RAR[r].nom}`).join(" ; ");
   function packDesc(p) {
     if (p.kind === "rarete") return `4 cartes au tirage standard + ${p.label.charAt(0).toLowerCase() + p.label.slice(1)}.`;
+    if (p.kind === "rang") return `Rang ${CONFIG.ranks[G.rankIndex(p.rang)].nom} requis · 4 cartes standard + ${p.label.charAt(0).toLowerCase() + p.label.slice(1)}.`;
     if (p.kind === "gratuit") return `Tout le catalogue · au moins 1 ${RAR[p.minRarity].nom}.`;
     const n = G.chars.filter(p.filter).length;
     return `${plural(n, "personnage")} · au moins 1 ${RAR[p.minRarity].nom}.`;
@@ -374,17 +427,18 @@
     <div class="wrapper${sm ? " sm" : ""}" style="--a:${p.c}" aria-hidden="true">
       <span class="wr-brand">Rosterium</span>
       <span class="wr-title">${p.kind === "theme" ? p.theme : p.nom.replace("Pack ", "")}</span>
-      <span class="wr-gem">${gem(p.kind === "rarete" ? Object.keys(p.garantie)[0] : p.minRarity)}</span>
+      <span class="wr-gem${p.kind === "rang" ? " wr-rank" : ""}">${p.kind === "rang" ? rankBadge(CONFIG.ranks[G.rankIndex(p.rang)]) : gem(p.garantie ? Object.keys(p.garantie)[0] : p.minRarity)}</span>
       <span class="wr-count">5 cartes</span>
     </div>`;
   function shopItem(p) {
-    return `<article class="shop-item">
+    const lock = G.rankLock(S, p);
+    return `<article class="shop-item${lock ? " locked" : ""}">
       ${wrapper(p)}
       <div class="si-body">
         <h3>${p.nom}</h3>
         <p>${packDesc(p)}</p>
         <div class="si-foot">
-          <button class="btn sm" data-pack="${p.id}" data-pay="coins" ${S.coins < p.prix ? "disabled" : ""}>${coin(p.prix)}</button>
+          ${lock ? `<span class="lock">🔒 ${lock}</span>` : `<button class="btn sm" data-pack="${p.id}" data-pay="coins" ${S.coins < p.prix ? "disabled" : ""}>${coin(p.prix)}</button>`}
           <button class="link" data-odds="${p.id}">Probabilités</button>
         </div>
       </div>
@@ -417,6 +471,10 @@
         <div class="shelf">${G.packs.filter((p) => p.kind === "rarete").map(shopItem).join("")}</div>
       </section>
       <section class="shelf-block">
+        <div class="shelf-head"><h2>Packs de rang</h2><p class="muted">Réservés aux joueurs classés · meilleures chances. Votre rang : ${G.rankInfo(S.xp).label}.</p></div>
+        <div class="shelf">${G.packs.filter((p) => p.kind === "rang").map(shopItem).join("")}</div>
+      </section>
+      <section class="shelf-block">
         <div class="shelf-head"><h2>Packs thématiques</h2><p class="muted">${coin(CONFIG.themePacks.prix)} · 5 cartes du thème, au moins 1 Rare.</p></div>
         <div class="shelf">${G.packs.filter((p) => p.kind === "theme").map(shopItem).join("")}</div>
       </section>`;
@@ -425,7 +483,7 @@
   function showOdds(id) {
     const p = G.packById(id); if (!p) return;
     let body;
-    if (p.kind === "rarete") {
+    if (p.garantie) {
       body = `<h3>Cartes 1 à 4 · tirage standard</h3>${oddsBars(CONFIG.standardOdds)}
         <h3>Carte 5 · garantie</h3>${oddsBars(p.garantie)}
         <p class="note"><b>${p.label}.</b></p>`;
@@ -439,11 +497,15 @@
     }
     const pay = p.kind === "gratuit"
       ? `<button class="btn" data-pack="${p.id}" data-pay="gratuit" ${G.freeStatus(S, now()).stock ? "" : "disabled"}>Ouvrir gratuitement</button>`
+      : G.rankLock(S, p) ? `<span class="lock">🔒 ${G.rankLock(S, p)}</span>`
       : `<button class="btn" data-pack="${p.id}" data-pay="coins" ${S.coins < p.prix ? "disabled" : ""}>Ouvrir · ${coin(p.prix)}</button>`;
     showModal(`<div class="odds-sheet">
       <div class="odds-top">${wrapper(p, true)}<div><p class="kicker">Probabilités</p><h2>${p.nom}</h2><p class="muted">${p.prix ? coin(p.prix) + " · " : "Gratuit · "}${CONFIG.packSize} cartes</p></div></div>
       ${body}
       <p class="note">Compteur de chance : ${pityText()}.</p>
+      <p class="note">Chaque carte a ${pct(CONFIG.holo.chance * 100)} de chances de sortir en <b>holo</b> (valeur ×${CONFIG.holo.valeur}).
+        1 pack sur ${num(Math.round(1 / CONFIG.godPack.chance))} est un <b>God pack</b> : 5 cartes Légendaire ou mieux.
+        Chaque Spectaculaire n'existe qu'en ${CONFIG.tirageLimite.spectaculaire} exemplaires numérotés.</p>
       <div class="row">${pay}</div>
     </div>`, "narrow");
   }
@@ -465,11 +527,12 @@
     // la ligne de déchirure : la même dentelure découpe le haut et le corps du sachet
     const N = 16, Y = Array.from({ length: N + 1 }, (_, i) => 17 + (i % 2 ? 2.4 : -1.2) + Math.sin(i * 1.7) * 0.8);
     const edge = Y.map((y, i) => `${(i / N) * 100}% ${y}%`);
-    const st = $("#stage"); st.hidden = false; st.className = "stage phase-tear";
+    const st = $("#stage"); st.hidden = false; st.className = "stage phase-tear" + (res.god ? " god" : "");
     st.innerHTML = `<div class="stage-in" style="--a:${res.pack.c}">
       <div class="tear-zone">
         <p class="kicker">${pay === "coins" ? "Acheté" : pay === "bon" ? "Bon utilisé" : "Offert"}</p>
         <h2>${res.pack.nom}</h2>
+        ${res.god ? `<p class="god-banner">God pack</p>` : ""}
         <div class="tear" id="tear" tabindex="0" role="button" aria-label="Déchirer le pack">
           <div class="tear-body" style="clip-path:polygon(${edge.join(",")},100% 100%,0 100%)">${wrapper(res.pack)}</div>
           <div class="tear-top" style="clip-path:polygon(0 0,100% 0,${[...edge].reverse().join(",")})">${wrapper(res.pack)}</div>
@@ -485,7 +548,7 @@
           <div class="flip" data-r="${x.c.rarete}" style="--c:var(--${x.c.rarete})" role="button" tabindex="0" aria-label="Retourner la carte ${i + 1}">
             <div class="flip-in">
               <div class="face back"><span class="back-mark"><i></i><i></i></span><span class="back-name">Rosterium</span></div>
-              <div class="face front">${cardHTML(x.c, { isNew: x.isNew, dup: !x.isNew, noQty: true })}</div>
+              <div class="face front">${cardHTML(x.c, { isNew: x.isNew, dup: !x.isNew, noQty: true, holo: x.holo, serial: x.serial, converti: x.converti })}</div>
             </div></div>`).join("")}</div>
         <div class="recap" id="recap" hidden></div>
         <div class="stage-actions" id="stage-actions"><button class="btn ghost" id="reveal-all">Tout retourner</button></div>
@@ -577,6 +640,10 @@
       </div>
       ${res.completed.map((f) => `<p class="recap-note">Franchise complétée : ${f} · +${CONFIG.xp.franchise} XP</p>`).join("")}
       ${res.pityHit ? `<p class="recap-note">Compteur de chance : carte ${RAR[res.pityHit].nom} garantie.</p>` : ""}
+      ${res.god ? `<p class="recap-note">God pack ! 1 chance sur ${num(Math.round(1 / CONFIG.godPack.chance))}.</p>` : ""}
+      ${res.cards.filter((x) => x.holo).map((x) => `<p class="recap-note">Carte holo : ${x.c.nom} (valeur ×${CONFIG.holo.valeur})</p>`).join("")}
+      ${res.cards.filter((x) => x.serial).map((x) => `<p class="recap-note">Édition limitée : ${x.c.nom} n° ${x.serial}/${CONFIG.tirageLimite[x.c.rarete]}</p>`).join("")}
+      ${res.eclats ? `<p class="recap-note">Copies au-delà de ${CONFIG.maxExemplaires} converties : +${num(res.eclats)} éclats</p>` : ""}
       ${res.rankUp ? `<p class="recap-note rankup">${rankBadge(res.rankUp.r)} Nouveau rang : ${res.rankUp.label}</p>` : ""}`;
     $("#stage-actions").innerHTML = `${nextOpenButton(res.pack)}<button class="btn ghost" id="close-stage">Terminer</button>`;
   }
@@ -592,7 +659,7 @@
     const big = G.franchises.filter((f) => list.filter((c) => c.franchise === f).length >= CONFIG.xp.franchiseMin);
     const done = big.filter((f) => S.franchises[f]).length;
     const dupValue = G.duplicatesValue(S);
-    $("#classeur").innerHTML = head(3, "Classeur", "Ma collection", `<button class="btn ghost sm" id="sell-dups" ${dupValue ? "" : "disabled"}>Vendre les doublons${dupValue ? ` · +${coin(dupValue)}` : ""}</button>`) + `
+    $("#classeur").innerHTML = head(3, "Classeur", "Ma collection", `<button class="btn sm" id="atelier"><span class="shard"></span>Atelier · ${num(S.eclats)} éclats</button><button class="btn ghost sm" id="sell-dups" ${dupValue ? "" : "disabled"}>Vendre les doublons${dupValue ? ` · +${coin(dupValue)}` : ""}</button>`) + `
       <div class="binder-stats">
         <div><p class="big-num">${have}<small>/ ${list.length}</small></p><p class="muted small">cartes · ${Math.round((have / list.length) * 100)} %</p></div>
         <ul class="legend">${ORDER.map((r) => {
@@ -649,6 +716,30 @@
   }
   wide.addEventListener("change", () => { if (current() === "classeur") renderPages(); });
 
+  // Atelier : les éclats (copies au-delà de 5) fabriquent une carte de petite rareté au choix
+  const AT = { r: "commun", q: "" };
+  function showAtelier() {
+    const costs = CONFIG.eclats.cout;
+    showModal(`<div>
+      <p class="kicker">Atelier</p><h2>Fabriquer une carte</h2>
+      <p class="muted">Vous avez <b><span class="shard"></span>${num(S.eclats)} éclats</b>. Les copies au-delà de ${CONFIG.maxExemplaires} exemplaires sont converties en éclats.
+        Seules les petites raretés se fabriquent : le haut du classement ne s'achète pas.</p>
+      <div class="toolbar">
+        <div class="seg">${Object.entries(costs).map(([r, n]) => `<button data-at-r="${r}" class="${AT.r === r ? "on" : ""}">${RAR[r].nom} · ${n}</button>`).join("")}</div>
+        <input id="at-q" type="search" placeholder="Nom ou franchise…" value="${AT.q}">
+      </div>
+      <div class="grid picker" id="at-list"></div></div>`, "wide");
+    $("#at-q").addEventListener("input", (e) => { AT.q = e.target.value; renderAtelierList(); });
+    renderAtelierList();
+  }
+  function renderAtelierList() {
+    const q = AT.q.trim().toLowerCase(), cost = CONFIG.eclats.cout[AT.r];
+    const list = G.chars.filter((c) => c.rarete === AT.r && !S.owned[c.slug] && (!q || (c.nom + " " + c.franchise).toLowerCase().includes(q))).slice(0, 36);
+    $("#at-list").innerHTML = list.length ? list.map((c) => `<div class="pick craft">${cardHTML(c, { noQty: true })}
+      <button class="btn sm" data-craft="${c.slug}" ${S.eclats < cost ? "disabled" : ""}><span class="shard"></span>${num(cost)}</button></div>`).join("")
+      : `<p class="empty-note">Vous avez déjà toutes ces cartes, ou aucune ne correspond.</p>`;
+  }
+
   function sellDuplicates() {
     const gain = G.duplicatesValue(S);
     if (!gain) return toast("Vous n'avez aucun doublon.");
@@ -656,11 +747,11 @@
     G.quickSellDuplicates(S, now()); persist(); refresh();
     toast(`+${coin(gain)}`);
   }
-  function quickSellOne(slug) {
-    const c = G.bySlug[slug], v = G.quickSellValue(c.rarete);
+  function quickSellOne(slug, holo = false) {
+    const c = G.bySlug[slug], v = G.quickSellValue(c.rarete, holo);
     const last = (S.owned[slug] || 0) === 1 ? " C'est votre seul exemplaire." : "";
-    if (!confirm(`Vendre 1 ${c.nom} au site pour ${v} coins ?${last}`)) return;
-    const res = G.quickSell(S, slug, 1, now());
+    if (!confirm(`Vendre 1 ${c.nom}${holo ? " holo" : ""} au site pour ${v} coins ?${last}`)) return;
+    const res = G.quickSell(S, slug, 1, now(), holo);
     if (res.error) return toast(res.error);
     persist(); refresh();
     S.owned[slug] ? openSheet(slug) : closeModal();
@@ -764,7 +855,7 @@
     $("#m-miss").addEventListener("input", (e) => { MF.miss = e.target.checked; renderBuyList(); });
     renderBuyList();
   }
-  const ratio = (a) => a.prix / RAR[G.bySlug[a.slug].rarete].prix;
+  const ratio = (a) => a.prix / G.marketValue(S, a.slug, a.holo);
   function renderBuyList() {
     if (!$("#m-list")) return;
     const max = Number(MF.max) || Infinity, n = now();
@@ -772,11 +863,11 @@
       const c = G.bySlug[a.slug];
       return (!MF.r || c.rarete === MF.r) && (!MF.f || c.franchise === MF.f) && a.prix <= max && (!MF.miss || !S.owned[c.slug]);
     }).sort((a, b) => MF.tri === "recent" ? b.cree - a.cree : MF.tri === "prix-desc" ? b.prix - a.prix : MF.tri === "ecart" ? ratio(a) - ratio(b) : a.prix - b.prix);
-    $("#m-list").innerHTML = `<div class="book-head"><span>Carte</span><span>Rareté</span><span>Prix</span><span>vs réf.</span><span>Vendeur</span><span>Fin</span><span></span></div>` +
+    $("#m-list").innerHTML = `<div class="book-head"><span>Carte</span><span>Rareté</span><span>Prix</span><span>vs marché</span><span>Vendeur</span><span>Fin</span><span></span></div>` +
       (list.length ? list.map((a) => {
         const c = G.bySlug[a.slug], d = Math.round((ratio(a) - 1) * 100);
         return `<div class="book-row">
-          <button class="br-card" data-open="${c.slug}">${thumb(c)}<span><b>${c.nom}</b><small>${c.franchise}${S.owned[c.slug] ? ` · ×${S.owned[c.slug]}` : ` · <em class="new">manquante</em>`}</small></span></button>
+          <button class="br-card" data-open="${c.slug}">${thumb(c)}<span><b>${c.nom}${a.holo ? ` <span class="holo-tag inline">Holo</span>` : ""}</b><small>${c.franchise}${S.owned[c.slug] ? ` · ×${S.owned[c.slug]}` : ` · <em class="new">manquante</em>`}</small></span></button>
           <span class="rt" style="--c:var(--${c.rarete})">${gem(c.rarete)}${RAR[c.rarete].nom}</span>
           <b class="mono">${coin(a.prix)}</b>
           <span class="mono ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : d < 0 ? "▼" : "="} ${Math.abs(d)} %</span>
@@ -818,10 +909,10 @@
 
   function renderRefPrices() {
     $("#m-body").innerHTML = `
-      <table class="table"><thead><tr><th>Rareté</th><th>Référence</th><th>Vente rapide</th><th>Prix autorisé</th></tr></thead>
-      <tbody>${ORDER.map((r) => { const [lo, hi] = G.priceBounds(r); return `
-        <tr><td class="rt" style="--c:var(--${r})">${gem(r)}${RAR[r].nom}</td><td class="mono">${num(RAR[r].prix)}</td><td class="mono">${num(G.quickSellValue(r))}</td><td class="mono">${num(lo)} – ${num(hi)}</td></tr>`; }).join("")}</tbody></table>
-      <p class="note">Vente rapide : ${pct(CONFIG.economy.venteRapide * 100)} du prix de référence, payée tout de suite par le site. Marché : de ${pct(M.prixMin * 100)} à ${pct(M.prixMax * 100)} du prix de référence, moins ${pct(M.commission * 100)} de commission.</p>`;
+      <table class="table"><thead><tr><th>Rareté</th><th>Référence</th><th>Holo</th><th>Vente rapide</th><th>Éclats (copie en trop)</th></tr></thead>
+      <tbody>${ORDER.map((r) => `
+        <tr><td class="rt" style="--c:var(--${r})">${gem(r)}${RAR[r].nom}</td><td class="mono">${num(RAR[r].prix)}</td><td class="mono">${num(G.refPrice(r, true))}</td><td class="mono">${num(G.quickSellValue(r))}</td><td class="mono">${num(CONFIG.eclats.gain[r])}</td></tr>`).join("")}</tbody></table>
+      <p class="note">Prix libres au marché, sans plafond : c'est l'offre et la demande qui fixent la valeur de chaque carte (voir « Dernières ventes » sur chaque fiche). Commission de ${pct(M.commission * 100)} sur chaque vente. Vente rapide : ${pct(CONFIG.economy.venteRapide * 100)} du prix de référence, payée tout de suite par le site.</p>`;
   }
 
   function pickToSell() {
@@ -833,19 +924,19 @@
       <div class="grid picker">${mine.map((c) => `<div class="pick" data-sell="${c.slug}">${cardHTML(c)}</div>`).join("")}</div></div>`, "wide");
   }
 
-  function sellForm(slug) {
+  function sellForm(slug, holo = false) {
     const err = G.canSell(S); if (err) return toast(err);
-    const c = G.bySlug[slug], ref = RAR[c.rarete].prix, [lo, hi] = G.priceBounds(c.rarete), q = S.owned[slug] || 0;
+    const c = G.bySlug[slug], ref = G.marketValue(S, slug, holo), q = S.owned[slug] || 0;
     showModal(`
-      <div class="sheet-card">${cardHTML(c, { noQty: true })}</div>
-      <form id="sell-form" class="sheet-body" data-slug="${slug}">
-        <p class="kicker">Mise en vente</p>
+      <div class="sheet-card">${cardHTML(c, { noQty: true, holo })}</div>
+      <form id="sell-form" class="sheet-body" data-slug="${slug}" data-holo="${holo ? 1 : ""}">
+        <p class="kicker">Mise en vente${holo ? " · holo" : ""}</p>
         <h2>${c.nom}</h2>
         <p class="muted">Vous en avez ×${q}${q === 1 ? " : c'est votre seul exemplaire" : ""}</p>
         <label class="field">Prix en coins
-          <input id="sell-price" type="number" min="${lo}" max="${hi}" step="1" value="${ref}" required>
+          <input id="sell-price" type="number" min="${M.prixMin}" step="1" value="${ref}" required>
         </label>
-        <p class="muted small">Entre ${num(lo)} et ${num(hi)} (référence ${num(ref)}).</p>
+        <p class="muted small">Prix libre, sans plafond. Valeur de marché actuelle : ${num(ref)} coins (moyenne des dernières ventes).</p>
         <p class="net">Vous recevrez <b id="sell-net">${num(G.netOf(ref))}</b> coins après ${pct(M.commission * 100)} de commission.</p>
         <p class="note">La carte quitte votre collection pendant la vente (${M.dureeH} h max). Si elle ne se vend pas ou si vous annulez, elle revient.</p>
         <div class="row"><button class="btn" type="submit">Mettre en vente</button><button type="button" class="btn ghost" data-close>Annuler</button></div>
@@ -858,8 +949,13 @@
      ============================================================ */
   // Prototype : le marché « vit » tout seul (acheteurs et vendeurs simulés),
   // et les packs gratuits se rechargent.
-  let lastStock = G.freeStatus(S, now()).stock;
+  let lastStock = G.freeStatus(S, now()).stock, lastClaim = G.claimable(S, now());
   function tick() {
+    const ended = G.checkSeason(S, now());
+    if (ended) toast(`Nouvelle saison ! Vous terminez la saison ${ended.saison} au rang ${CONFIG.ranks[ended.rang].nom}.`);
+    const claim = G.claimable(S, now());
+    if (claim > lastClaim) { toast("Défi réussi : récompense à récupérer dans « Défis »"); renderWallet(); if (current() === "defis") renderDefis(); }
+    lastClaim = claim;
     const events = G.tickMarket(S, now(), rand);
     const stock = G.freeStatus(S, now()).stock;
     save();
@@ -900,8 +996,23 @@
     if (at(".flip")) return flip(at(".flip"));
     if (at("#reveal-all")) return revealAll();
     if (at("#close-stage")) { $("#stage").hidden = true; opening = null; return refresh(); }
-    if (at("[data-quick]")) return quickSellOne(at("[data-quick]").dataset.quick);
-    if (at("[data-sell]")) return sellForm(at("[data-sell]").dataset.sell);
+    if (at("[data-quick]")) return quickSellOne(at("[data-quick]").dataset.quick, !!at("[data-quick]").dataset.holo);
+    if (at("[data-sell]")) return sellForm(at("[data-sell]").dataset.sell, !!at("[data-sell]").dataset.holo);
+    if (at("[data-defi]")) {
+      const res = G.claimDefi(S, at("[data-defi]").dataset.defi, now());
+      if (res.error) return toast(res.error);
+      lastClaim = G.claimable(S, now());
+      persist(); refresh();
+      return toast(`Récompense : ${rewardText(res.recompense)}`);
+    }
+    if (at("#atelier")) return showAtelier();
+    if (at("[data-at-r]")) { AT.r = at("[data-at-r]").dataset.atR; return showAtelier(); }
+    if (at("[data-craft]")) {
+      const res = G.craft(S, at("[data-craft]").dataset.craft, now());
+      if (res.error) return toast(res.error);
+      persist(); showAtelier();
+      return toast(`${res.c.nom} fabriqué${res.completed.length ? ` · franchise complétée : ${res.completed.join(", ")}` : ""}`);
+    }
     if (at("#new-listing")) return pickToSell();
     if (at("#sell-dups")) return sellDuplicates();
     if (at("[data-tab]")) { mTab = at("[data-tab]").dataset.tab; return renderMarket(); }
@@ -934,7 +1045,7 @@
     if (e.target.id !== "sell-form") return;
     e.preventDefault();
     const slug = e.target.dataset.slug;
-    const res = G.listCard(S, slug, Number($("#sell-price").value), now());
+    const res = G.listCard(S, slug, Number($("#sell-price").value), now(), !!e.target.dataset.holo);
     if (res.error) return toast(res.error);
     persist(); closeModal(); refresh();
     toast(`${G.bySlug[slug].nom} mis en vente pour ${coin(res.annonce.prix)}`);

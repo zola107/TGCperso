@@ -16,11 +16,11 @@
 </head>
 <body>
   <h1>Vérification des règles et de l'économie</h1>
-  <p class="muted">Tests automatiques des réglages (config.js) et simulation de 10 000 ouvertures par pack avec le vrai moteur (engine.js). À relancer après chaque changement de réglage.</p>
+  <p class="muted">Tests automatiques des réglages (config.js) et simulation de 4 000 ouvertures par pack avec le vrai moteur (engine.js). À relancer après chaque changement de réglage.</p>
   <p id="summary"></p>
   <h2>Tests</h2>
   <table id="tests"><thead><tr><th>Test</th><th>Résultat</th></tr></thead><tbody></tbody></table>
-  <h2>Simulation de l'économie (10 000 packs par type, compteur de pitié actif)</h2>
+  <h2>Simulation de l'économie (4 000 packs par type, compteur de pitié actif)</h2>
   <table id="sim"><thead><tr><th>Pack</th><th>Prix</th><th>Valeur moyenne</th><th>En vente rapide</th><th>Bilan revente</th></tr></thead><tbody></tbody></table>
   <h2>Journée type d'un joueur assidu</h2>
   <table id="day"><thead><tr><th>Source</th><th>Par jour</th></tr></thead><tbody></tbody></table>
@@ -34,7 +34,7 @@
     (() => {
       const G = Engine.create(CONFIG, CHARACTERS, FRANCHISE_TAGS);
       const { RAR, ORDER } = G;
-      const N = 10000, rng = Math.random;
+      const N = 4000, rng = Math.random;
       // cartes de test prises dans le catalogue (le catalogue est regénéré par le script)
       const PC = G.chars.find((c) => c.rarete === "peucommun").slug, TOP = G.chars.find((c) => c.rarete === "spectaculaire").slug;
       const results = [];
@@ -44,7 +44,8 @@
       };
 
       test("Tirage standard : total = 100", () => G.isValidTable(CONFIG.standardOdds) || `total ${G.total(CONFIG.standardOdds)}`);
-      CONFIG.rarityPacks.forEach((p) => test(`${p.nom} : table garantie = 100`, () => G.isValidTable(p.garantie) || `total ${G.total(p.garantie)}`));
+      test("God pack : table = 100", () => G.isValidTable(CONFIG.godPack.table) || `total ${G.total(CONFIG.godPack.table)}`);
+      [...CONFIG.rarityPacks, ...CONFIG.rankPacks].forEach((p) => test(`${p.nom} : table garantie = 100`, () => G.isValidTable(p.garantie) || `total ${G.total(p.garantie)}`));
       test("Chaque rareté a au moins 1 personnage", () => ORDER.every((r) => G.chars.some((c) => c.rarete === r)) || "rareté vide");
       test("Chaque personnage a une rareté connue", () => G.chars.every((c) => RAR[c.rarete]) || G.chars.filter((c) => !RAR[c.rarete]).map((c) => c.nom).join(", "));
       test("Identifiants uniques (slug et PDX-)", () => new Set(G.chars.map((c) => c.slug)).size === G.chars.length && new Set(G.chars.map((c) => c.id)).size === G.chars.length);
@@ -70,11 +71,11 @@
           if (!d.cards.some((x) => G.rank(x.c.rarete) >= G.rank("rare"))) return "pack sans Rare+";
         }
       });
-      CONFIG.rarityPacks.forEach((rp) => test(`${rp.nom} : carte garantie respectée`, () => {
+      [...CONFIG.rarityPacks, ...CONFIG.rankPacks].forEach((rp) => test(`${rp.nom} : carte garantie respectée`, () => {
         const p = G.packById(rp.id), min = Math.min(...Object.keys(rp.garantie).map(G.rank));
-        for (let i = 0; i < 3000; i++) { const d = G.drawPack(p, {}, {}, rng); if (G.rank(d.cards[4].c.rarete) < min) return "garantie non respectée"; }
+        for (let i = 0; i < 3000; i++) { const d = G.drawPack(p, {}, {}, rng); if (!d.god && G.rank(d.cards[4].c.rarete) < min) return "garantie non respectée"; }
       }));
-      test("Pitié : après 10 packs sans Épique+, le suivant en contient une", () => {
+      test(`Pitié : après ${CONFIG.pity.epique} packs sans Épique+, le suivant en contient une`, () => {
         const p = G.packById("theme-solo");
         for (let i = 0; i < 2000; i++) { const d = G.drawPack(p, {}, { epique: CONFIG.pity.epique }, rng); if (!d.cards.some((x) => G.rank(x.c.rarete) >= G.rank("epique"))) return "pitié non appliquée"; }
       });
@@ -91,16 +92,16 @@
       test("Ouvrir un pack débite le prix et ajoute 5 cartes", () => {
         const S = G.newState(0), r = G.openPack(S, "theme-rpg", 0, rng);
         const n = Object.values(S.owned).reduce((a, b) => a + b, 0);
-        return (S.coins === CONFIG.economy.depart - 150 && n === 5 && r.xp > 0) || `coins ${S.coins}, cartes ${n}`;
+        return (S.coins === CONFIG.economy.depart - CONFIG.themePacks.prix && n === 5 && r.xp > 0) || `coins ${S.coins}, cartes ${n}`;
       });
       test("Pas assez de coins : refus, rien n'est débité", () => { const S = G.newState(0); S.coins = 100; return (G.openPack(S, "pack-mythique", 0, rng).error && S.coins === 100) || "pack ouvert"; });
       test("Marché : rang Argent requis pour vendre", () => { const S = G.newState(0); S.owned[TOP] = 1; return !!G.listCard(S, TOP, 1500, 0).error || "vente acceptée en Bronze"; });
-      test("Marché : prix hors limites refusé (50 % à 500 %)", () => {
-        const S = G.newState(0); S.xp = 200; S.owned[PC] = 3;
-        return (!!G.listCard(S, PC, 4, 0).error && !!G.listCard(S, PC, 51, 0).error && !G.listCard(S, PC, 50, 0).error) || "limites non appliquées";
+      test("Marché : prix libre sans plafond (10 000 000 accepté, 0 refusé)", () => {
+        const S = G.newState(0); S.xp = CONFIG.ranks[1].xp; S.owned[PC] = 3;
+        return (!!G.listCard(S, PC, 0, 0).error && !G.listCard(S, PC, 10000000, 0).error) || "plafond encore appliqué";
       });
       test("Marché : séquestre, annulation, commission de 10 %", () => {
-        const S = G.newState(0); S.xp = 200; S.owned[PC] = 1;
+        const S = G.newState(0); S.xp = CONFIG.ranks[1].xp; S.owned[PC] = 1;
         const a = G.listCard(S, PC, 20, 0).annonce;
         if (S.owned[PC]) return "carte non retirée";
         G.cancelListing(S, a.id, 1); if (S.owned[PC] !== 1) return "carte non rendue";
@@ -109,7 +110,7 @@
         return (b.statut === "vendue" && S.coins - before === 18) || `statut ${b.statut}, reçu ${S.coins - before}`;
       });
       test("Marché : 20 annonces actives maximum", () => {
-        const S = G.newState(0); S.xp = 200; S.owned[PC] = 25;
+        const S = G.newState(0); S.xp = CONFIG.ranks[1].xp; S.owned[PC] = 25;
         for (let i = 0; i < 20; i++) G.listCard(S, PC, 10, 0);
         return !!G.listCard(S, PC, 10, 0).error || "21e annonce acceptée";
       });
@@ -121,7 +122,7 @@
         return (S.coins === 0 && S.owned[a.slug] === 1 && !S.marche.includes(a)) || "transfert incomplet";
       });
       test("Annonce expirée après 72 h : la carte revient", () => {
-        const S = G.newState(0); S.xp = 200; S.owned[PC] = 1;
+        const S = G.newState(0); S.xp = CONFIG.ranks[1].xp; S.owned[PC] = 1;
         const a = G.listCard(S, PC, 50, 0).annonce; S.lastTick = 72 * 3600e3;
         G.tickMarket(S, 72 * 3600e3, () => 0.999999);
         return (a.statut === "expiree" && S.owned[PC] === 1) || `statut ${a.statut}`;
@@ -152,7 +153,7 @@
         const t2 = new Date(2026, 10, 4, 10).getTime();
         return !G.openPack(S, G.packDuJour(t2).id, t2, rng, "jour").error || "pas disponible le lendemain";
       });
-      test("Connexion : +250/jour, +500 le premier jour de la semaine, bon Pack Épique au 7e jour", () => {
+      test(`Connexion : +${CONFIG.economy.quotidien}/jour, +${CONFIG.economy.hebdo} le premier jour de la semaine, bon au 7e jour`, () => {
         const S = G.newState(0), c0 = S.coins;
         const d = (k) => new Date(2026, 10, 2 + k, 9).getTime(); // lundi 2 nov. 2026
         const r1 = G.claimDaily(S, d(0));
@@ -171,9 +172,75 @@
         return !!G.openPack(S, "pack-epique", 0, rng, "bon").error || "bon réutilisé";
       });
       test("Rangs : 3 divisions (III, II, I) par rang, Champion sans division", () => {
-        const a = G.rankInfo(0), b = G.rankInfo(100), c = G.rankInfo(149), d = G.rankInfo(150), e = G.rankInfo(99999);
+        const A = CONFIG.ranks[1].xp, a = G.rankInfo(0), b = G.rankInfo(Math.ceil(A * 0.7)), c = G.rankInfo(A - 1), d = G.rankInfo(A), e = G.rankInfo(CONFIG.ranks[6].xp + 1);
         return (a.label === "Bronze III" && b.label === "Bronze I" && c.label === "Bronze I" && d.label === "Argent III" && e.label === "Champion") ||
           [a, b, c, d, e].map((x) => x.label).join(", ");
+      });
+
+
+      /* ---------- économie avancée ---------- */
+      test(`Doublons : au-delà de ${CONFIG.maxExemplaires} exemplaires, la copie devient des éclats`, () => {
+        const S = G.newState(0), c = G.bySlug[PC], copy = () => ({ c, isNew: false });
+        G.give(S, Array.from({ length: CONFIG.maxExemplaires }, copy), false);
+        if (S.owned[PC] !== CONFIG.maxExemplaires || S.eclats) return "les 5 premières copies doivent être gardées";
+        const r = G.give(S, [copy(), copy()], false);
+        return (S.owned[PC] === CONFIG.maxExemplaires && S.eclats === 2 * CONFIG.eclats.gain[c.rarete] && r.eclats === S.eclats) || `exemplaires ${S.owned[PC]}, éclats ${S.eclats}`;
+      });
+      test("Doublons : une copie holo n'est jamais convertie", () => {
+        const S = G.newState(0), c = G.bySlug[PC];
+        G.give(S, Array.from({ length: CONFIG.maxExemplaires }, () => ({ c, isNew: false })), false);
+        G.give(S, [{ c, isNew: false, holo: true }], false);
+        return (G.holoCount(S, PC) === 1 && !S.eclats) || "holo convertie";
+      });
+      test("Atelier : fabrique une petite rareté contre des éclats, jamais une haute rareté", () => {
+        const S = G.newState(0), cost = CONFIG.eclats.cout[G.bySlug[PC].rarete]; S.eclats = cost;
+        if (G.craft(S, PC, 0).error || S.eclats !== 0 || S.owned[PC] !== 1) return "fabrication ratée";
+        S.eclats = 1e9;
+        return !!G.craft(S, TOP, 0).error || "Spectaculaire fabriquée";
+      });
+      test("Défis : 3 du jour, réclamables une seule fois quand ils sont réussis", () => {
+        const S = G.newState(0), t = new Date(2026, 10, 3, 10).getTime(), l = G.defisList(S, t);
+        if (l.jour.length !== CONFIG.defis.quotidiens || l.semaine.length !== CONFIG.defis.hebdomadaires) return "nombre de défis";
+        const x = l.jour[0];
+        if (!G.claimDefi(S, x.key, t).error) return "réclamé avant d'être réussi";
+        S.stats[x.def.stat] = (S.stats[x.def.stat] || 0) + x.def.cible;
+        if (x.def.stat === "differentes" || x.def.stat === "franchises" || x.def.stat === "rang") return true;
+        const c0 = S.coins, r = G.claimDefi(S, x.key, t);
+        if (r.error || S.coins - c0 !== (x.def.recompense.coins || 0)) return "récompense : " + (r.error || S.coins - c0);
+        return !!G.claimDefi(S, x.key, t).error || "réclamé deux fois";
+      });
+      test("Succès : « Premier pack » se débloque en ouvrant un pack", () => {
+        const S = G.newState(0); G.openPack(S, "aleatoire", 0, rng, "gratuit");
+        const a = G.defisList(S, 0).succes.find((x) => x.def.id === "a-premier");
+        return (a.done && !a.claimed) || "non débloqué";
+      });
+      test("Packs de rang : verrouillés sous le rang requis, ouverts au-dessus", () => {
+        const P = CONFIG.rankPacks[0], S = G.newState(0); S.coins = 1e6;
+        if (!G.openPack(S, P.id, 0, rng).error) return "ouvert sans le rang";
+        S.xp = CONFIG.ranks[G.rankIndex(P.rang)].xp;
+        return !G.openPack(S, P.id, 0, rng).error || "refusé avec le rang";
+      });
+      test(`Saisons : nouvelle saison = XP classée × ${CONFIG.saison.garde}, meilleur rang gardé`, () => {
+        const S = G.newState(0), s1 = G.seasonInfo(new Date(CONFIG.saison.debut + "T12:00:00").getTime());
+        G.checkSeason(S, s1.debut + 1000); S.xp = 40000; S.rangMax = G.rankOf(40000);
+        const ended = G.checkSeason(S, s1.fin + 1000);
+        return (ended && ended.rang === G.rankOf(40000) && S.xp === 40000 * CONFIG.saison.garde && S.saison === s1.numero + 1) || "reset incorrect";
+      });
+      test(`Holo : environ ${CONFIG.holo.chance * 100} % des cartes`, () => {
+        let h = 0, n = 0; const p = G.packById("theme-solo");
+        for (let i = 0; i < 4000; i++) G.drawPack(p, {}, {}, rng).cards.forEach((x) => { n++; if (x.holo) h++; });
+        const r = h / n; return (r > CONFIG.holo.chance * 0.7 && r < CONFIG.holo.chance * 1.3) || `${(r * 100).toFixed(2)} %`;
+      });
+      test(`Éditions numérotées : chaque Spectaculaire reçoit un numéro unique entre 1 et ${CONFIG.tirageLimite.spectaculaire}`, () => {
+        const S = G.newState(0), c = G.bySlug[TOP], cards = Array.from({ length: 4 }, () => ({ c, isNew: false, holo: true }));
+        G.give(S, cards, false);
+        const n = cards.map((x) => x.serial);
+        return (new Set(n).size === 4 && n.every((v) => v >= 1 && v <= CONFIG.tirageLimite.spectaculaire) && S.serials[TOP].length === 4) || "numéros : " + n.join(", ");
+      });
+      test("God pack : quand il tombe, les 5 cartes sont Légendaire ou mieux", () => {
+        let first = true; const forced = () => (first ? ((first = false), 0) : Math.random()); // 1er tirage = god pack
+        const d = G.drawPack(G.packById("theme-solo"), {}, {}, forced);
+        return (d.god && d.cards.length === 5 && d.cards.every((x) => G.rank(x.c.rarete) >= G.rank("legendaire"))) || "god pack incorrect";
       });
 
       /* ---------- simulation de l'économie ---------- */
@@ -198,18 +265,21 @@
 
       // journée type d'un joueur assidu (connexion quotidienne, packs gratuits récupérés à temps)
       const E = CONFIG.economy, perDay = 24 / F.intervalH;
-      const coinsDay = E.quotidien + E.hebdo / 7, themeDay = coinsDay / CONFIG.themePacks.prix;
+      const avg = (l) => l.reduce((a, d) => a + (d.recompense.coins || 0), 0) / l.length;
+      const defisDay = avg(CONFIG.defis.jour) * CONFIG.defis.quotidiens + (avg(CONFIG.defis.semaine) * CONFIG.defis.hebdomadaires) / 7;
+      const coinsDay = E.quotidien + E.hebdo / 7 + defisDay, themeDay = coinsDay / CONFIG.themePacks.prix;
       const bonDay = 1 / CONFIG.gratuit.serie.jours;
       const total = perDay + 1 + bonDay + themeDay;
       document.querySelector("#day tbody").innerHTML = [
         ["Packs Aléatoires (recharge)", perDay.toFixed(1)],
         ["Pack du jour", "1"],
         [`Bon de série (1 ${G.packById(CONFIG.gratuit.serie.bon).nom} / ${CONFIG.gratuit.serie.jours} j)`, bonDay.toFixed(2)],
-        [`Packs thématiques achetés avec ${coinsDay.toFixed(0)} coins/jour`, themeDay.toFixed(2)],
+        [`Coins par jour : connexion ${E.quotidien}, bonus hebdo ${(E.hebdo / 7).toFixed(0)}, défis ${defisDay.toFixed(0)}`, `${coinsDay.toFixed(0)} coins`],
+        [`Packs thématiques achetés avec ces coins`, themeDay.toFixed(2)],
         ["<b>Total par jour</b>", `<b>≈ ${total.toFixed(1)} packs</b>`],
         ["Revente rapide des packs gratuits (max/jour)", `${((perDay + 1) * freeQuick).toFixed(0)} coins`],
       ].map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("");
-      test("Journée type : au moins 6 packs par jour", () => total >= 6 || `${total.toFixed(1)} packs`);
+      test("Journée type : entre 3 et 8 packs par jour (les coins restent rares)", () => (total >= 3 && total <= 8) || `${total.toFixed(1)} packs`);
 
       document.querySelector("#tests tbody").innerHTML = results.map(([n, ok, msg]) =>
         `<tr><td>${n}</td><td class="${ok ? "ok" : "ko"}">${ok ? "OK" : "ÉCHEC : " + msg}</td></tr>`).join("");

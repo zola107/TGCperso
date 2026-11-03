@@ -857,3 +857,78 @@ button.mini-pack:hover { transform: translateY(-4px) rotate(-2deg); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
 }
+
+/* ============================================================
+   ÉCONOMIE : holo, éditions numérotées, god pack, défis, éclats, packs de rang
+   ============================================================ */
+/* carte holo : un film irisé qui suit le curseur, quelle que soit la rareté */
+.card.holo .art::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .55;
+  background: repeating-linear-gradient(115deg, #ff2bd6 0, #ffd24a 6%, #34d399 12%, #22e5ff 18%, #7c5cff 24%, #ff2bd6 30%);
+  background-size: 300% 300%; background-position: var(--mx) var(--my); animation: holo-drift 7s linear infinite;
+}
+@keyframes holo-drift { to { background-position: 300% 0; } }
+.card.holo { box-shadow: 0 0 22px rgba(255,43,214,.35), 0 0 22px rgba(34,229,255,.3), 0 8px 18px var(--card-shadow); }
+.holo-tag {
+  position: absolute; right: 0; top: 48px; z-index: 4; font: 700 .55rem var(--f-mono); letter-spacing: .12em; text-transform: uppercase;
+  padding: 3px 7px; color: #111; background: linear-gradient(90deg, var(--prism)); border-radius: 4px 0 0 4px;
+}
+.holo-tag.inline { position: static; display: inline-block; border-radius: 3px; margin-left: 4px; vertical-align: 2px; }
+.card.locked .holo-tag { display: none; }
+.serial { color: #ffd24a !important; letter-spacing: .06em; }
+.badge.conv { background: #2c2208; color: #ffd24a; }
+
+/* éclat (monnaie de l'atelier) */
+.shard {
+  display: inline-block; width: .8em; height: .95em; margin-right: .3em; vertical-align: -.1em; flex: none;
+  clip-path: polygon(50% 0, 100% 35%, 80% 100%, 20% 100%, 0 35%);
+  background: linear-gradient(160deg, #e0f7ff, #7cc4ff 45%, #3b6fd8);
+}
+.w-eclats b { font-size: .95rem !important; color: var(--muted); }
+.pick.craft { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.pick.craft .card { cursor: default; }
+
+/* god pack */
+.god-banner {
+  font: 900 clamp(2rem, 6vw, 4rem)/1 "Big Shoulders Display", sans-serif; text-transform: uppercase; letter-spacing: .04em;
+  background: linear-gradient(90deg, var(--prism)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: god-shine 2s linear infinite; margin-bottom: 8px; filter: drop-shadow(0 0 18px rgba(255,210,74,.5));
+}
+@keyframes god-shine { to { background-position: 200% 0; } }
+.stage.god { background: radial-gradient(circle at 50% 42%, #4a3510, #120c02 72%); }
+
+/* défis */
+.p-defis { grid-column: span 12; }
+.defis-list { display: flex; flex-direction: column; }
+.defi { display: grid; grid-template-columns: minmax(0, 1fr) 160px 64px 112px; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.defi:last-child { border-bottom: 0; }
+.defi-txt b { display: block; font-size: .92rem; }
+.defi-txt small { color: var(--muted); font-size: .76rem; display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.defi-bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.defi-bar i { display: block; height: 100%; background: var(--accent); }
+.defi.done { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.defi.done .defi-bar i { background: var(--pos); }
+.defi.claimed { opacity: .5; }
+.defi .btn { justify-self: end; }
+.defi-ok { justify-self: end; font-weight: 700; color: var(--pos); padding-right: 14px; }
+.defi-wait { justify-self: end; font: 600 .66rem var(--f-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding-right: 6px; }
+.defis-block { margin-bottom: 16px; }
+.pill { padding: 6px 12px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: .8rem; }
+
+/* packs de rang */
+.wr-gem.wr-rank { width: 38px; height: 38px; background: none; bottom: 34px; }
+.wr-gem.wr-rank .rank-emblem { width: 36px; height: 36px; }
+.wrapper.sm .wr-gem.wr-rank { width: 24px; height: 24px; }
+.wrapper.sm .wr-gem.wr-rank .rank-emblem { width: 22px; height: 22px; }
+.shop-item.locked .wrapper { filter: grayscale(.85) brightness(.7); }
+.lock { font-size: .8rem; color: var(--muted); font-weight: 600; }
+
+/* fiche : historique des ventes */
+.histo { display: flex; flex-wrap: wrap; gap: 6px 12px; font: .82rem var(--f-mono); }
+
+@media (max-width: 760px) {
+  .defi { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
+  .defi-bar { grid-column: 1; }
+  .defi > .mono { grid-column: 2; grid-row: 2; }
+  .defi .btn, .defi-ok, .defi-wait { grid-column: 2; grid-row: 1; }
+}
