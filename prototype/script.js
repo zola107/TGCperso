@@ -131,9 +131,14 @@
     const o = G.freeOffers(S, now());
     return o.aleatoire.stock + (o.jour && o.jour.dispo ? 1 : 0) + o.bons.reduce((a, b) => a + b.n, 0) + (G.dailyDone(S, now()) ? 0 : 1);
   }
+  const toasts = [];
   function toast(msg) {
-    const t = $("#toast"); t.innerHTML = msg; t.classList.add("show");
-    clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 3000);
+    toasts.push(msg);
+    if (toasts.length === 1) showToast();
+  }
+  function showToast() {
+    const t = $("#toast"); t.innerHTML = toasts[0]; t.classList.add("show");
+    setTimeout(() => { t.classList.remove("show"); setTimeout(() => { toasts.shift(); if (toasts.length) showToast(); }, 250); }, 2800);
   }
   const persist = () => { save(); renderWallet(); };
 
@@ -227,6 +232,16 @@
         <section class="panel p-defis">
           <div class="panel-head"><p class="label">Défis du jour</p><a href="#defis">Tous les défis et succès</a></div>
           <div class="defis-list">${G.defisList(S, t).jour.map(defiRow).join("")}</div>
+        </section>
+
+        <section class="panel p-vitrine">
+          <div class="panel-head"><p class="label">Ma vitrine</p><span class="muted small">${S.offresRecues.length ? `<a href="#marche" data-goto-tab="offres">${plural(S.offresRecues.length, "offre")} reçue${S.offresRecues.length > 1 ? "s" : ""} sur vos cartes</a>` : "visible par les autres joueurs"}</span></div>
+          <div class="vitrine">
+            <div class="vitrine-value"><p class="label">Valeur de la collection</p><p class="big-num">${coin(G.collectionValue(S))}</p>
+              <p class="muted small">d'après les dernières ventes au marché</p></div>
+            <div class="vitrine-cards">${S.vitrine.filter((x) => G.bySlug[x] && S.owned[x]).map((x) => cardHTML(G.bySlug[x], { noQty: true })).join("")
+              || `<p class="empty-note">Mettez vos plus belles cartes en vitrine depuis leur fiche (jusqu'à ${CONFIG.vitrine}).</p>`}</div>
+          </div>
         </section>
 
         <section class="panel p-spot">
@@ -402,6 +417,12 @@
         ${holo ? `<div class="row">
           <button class="btn" data-sell="${c.slug}" data-holo="1">Vendre la holo</button>
           <button class="btn ghost" data-quick="${c.slug}" data-holo="1">Vente rapide holo · +${coin(G.quickSellValue(c.rarete, true))}</button></div>` : ""}
+        <div class="row">
+          <button class="btn ghost sm" data-wish="${c.slug}">${S.souhaits[c.slug] ? "♥ Dans ma liste de souhaits" : "♡ Ajouter à ma liste de souhaits"}</button>
+          ${qty ? `<button class="btn ghost sm" data-auction="${c.slug}">Mettre aux enchères</button>
+            <button class="btn ghost sm" data-showcase="${c.slug}">${S.vitrine.includes(c.slug) ? "Retirer de la vitrine" : "Mettre en vitrine"}</button>` : ""}
+          ${plain < CONFIG.maxExemplaires ? `<button class="btn ghost sm" data-offer="${c.slug}">Faire une offre d'achat</button>` : ""}
+        </div>
         ${same.length ? `<p class="label">Même franchise</p><div class="chips">${same.map((x) => `<button data-open="${x.slug}">${gem(x.rarete)}${x.nom}</button>`).join("")}</div>` : ""}
       </div>`, "sheet-char");
   }
@@ -830,13 +851,13 @@
      ============================================================ */
   const M = CONFIG.market;
   let mTab = "acheter";
-  const MF = { r: "", f: "", max: "", miss: false, tri: "prix" };
+  const MF = { r: "", f: "", max: "", miss: false, wish: false, tri: "prix" };
   function renderMarket() {
-    const tabs = [["acheter", "Acheter"], ["ventes", "Mes ventes"], ["prix", "Prix de référence"]];
+    const tabs = [["acheter", "Acheter"], ["encheres", "Enchères"], ["offres", `Offres${S.offresRecues.length ? ` (${S.offresRecues.length})` : ""}`], ["ventes", "Mes ventes"], ["prix", "Prix de référence"]];
     $("#marche").innerHTML = head(5, "Marché", "Échanges", `<span class="muted small">Commission ${pct(M.commission * 100)} · annonces ${M.dureeH} h · <em>vendeurs simulés (prototype)</em></span>`) + `
       <div class="tabs" role="tablist">${tabs.map(([id, l]) => `<button role="tab" aria-selected="${mTab === id}" class="${mTab === id ? "on" : ""}" data-tab="${id}">${l}</button>`).join("")}</div>
       <div id="m-body"></div>`;
-    ({ acheter: renderBuy, ventes: renderMySales, prix: renderRefPrices })[mTab]();
+    ({ acheter: renderBuy, encheres: renderAuctions, offres: renderOffers, ventes: renderMySales, prix: renderRefPrices })[mTab]();
   }
   function renderBuy() {
     $("#m-body").innerHTML = `
@@ -845,6 +866,7 @@
         <select id="m-f" aria-label="Franchise"></select>
         <input id="m-max" type="number" min="0" placeholder="Prix max" aria-label="Prix maximum" value="${MF.max}">
         <label class="check"><input id="m-miss" type="checkbox" ${MF.miss ? "checked" : ""}> Manquantes uniquement</label>
+        <label class="check"><input id="m-wish" type="checkbox" ${MF.wish ? "checked" : ""}> ♥ Ma liste</label>
         <select id="m-tri" aria-label="Tri"><option value="prix">Prix ↑</option><option value="prix-desc">Prix ↓</option><option value="recent">Récentes</option><option value="ecart">Bonnes affaires</option></select>
       </div>
       <div class="book" id="m-list"></div>`;
@@ -853,6 +875,7 @@
     $("#m-tri").value = MF.tri;
     [["#m-r", "r"], ["#m-f", "f"], ["#m-max", "max"], ["#m-tri", "tri"]].forEach(([s, k]) => $(s).addEventListener("input", (e) => { MF[k] = e.target.value; renderBuyList(); }));
     $("#m-miss").addEventListener("input", (e) => { MF.miss = e.target.checked; renderBuyList(); });
+    $("#m-wish").addEventListener("input", (e) => { MF.wish = e.target.checked; renderBuyList(); });
     renderBuyList();
   }
   const ratio = (a) => a.prix / G.marketValue(S, a.slug, a.holo);
@@ -861,13 +884,13 @@
     const max = Number(MF.max) || Infinity, n = now();
     const list = S.marche.filter((a) => {
       const c = G.bySlug[a.slug];
-      return (!MF.r || c.rarete === MF.r) && (!MF.f || c.franchise === MF.f) && a.prix <= max && (!MF.miss || !S.owned[c.slug]);
+      return (!MF.r || c.rarete === MF.r) && (!MF.f || c.franchise === MF.f) && a.prix <= max && (!MF.miss || !S.owned[c.slug]) && (!MF.wish || S.souhaits[c.slug]);
     }).sort((a, b) => MF.tri === "recent" ? b.cree - a.cree : MF.tri === "prix-desc" ? b.prix - a.prix : MF.tri === "ecart" ? ratio(a) - ratio(b) : a.prix - b.prix);
     $("#m-list").innerHTML = `<div class="book-head"><span>Carte</span><span>Rareté</span><span>Prix</span><span>vs marché</span><span>Vendeur</span><span>Fin</span><span></span></div>` +
       (list.length ? list.map((a) => {
         const c = G.bySlug[a.slug], d = Math.round((ratio(a) - 1) * 100);
         return `<div class="book-row">
-          <button class="br-card" data-open="${c.slug}">${thumb(c)}<span><b>${c.nom}${a.holo ? ` <span class="holo-tag inline">Holo</span>` : ""}</b><small>${c.franchise}${S.owned[c.slug] ? ` · ×${S.owned[c.slug]}` : ` · <em class="new">manquante</em>`}</small></span></button>
+          <button class="br-card" data-open="${c.slug}">${thumb(c)}<span><b>${S.souhaits[c.slug] ? `<span class="wish">♥</span> ` : ""}${c.nom}${a.holo ? ` <span class="holo-tag inline">Holo</span>` : ""}</b><small>${c.franchise}${S.owned[c.slug] ? ` · ×${S.owned[c.slug]}` : ` · <em class="new">manquante</em>`}</small></span></button>
           <span class="rt" style="--c:var(--${c.rarete})">${gem(c.rarete)}${RAR[c.rarete].nom}</span>
           <b class="mono">${coin(a.prix)}</b>
           <span class="mono ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : d < 0 ? "▼" : "="} ${Math.abs(d)} %</span>
@@ -878,7 +901,108 @@
       }).join("") : `<p class="empty-note">Aucune annonce ne correspond à ces filtres.</p>`);
   }
 
-  const STATUT = { vendue: "Vendue", expiree: "Expirée", annulee: "Annulée" };
+  const STATUT = { vendue: "Vendue", expiree: "Expirée", annulee: "Annulée", invendue: "Invendue", acceptee: "Acceptée" };
+  const EN = M.encheres, OF = M.offres;
+  const dureeTxt = (h) => (h < 1 ? `${Math.round(h * 60)} min` : `${h} h`);
+  const cardCell = (c, holo) => `<button class="br-card" data-open="${c.slug}">${thumb(c)}<span><b>${S.souhaits[c.slug] ? `<span class="wish">♥</span> ` : ""}${c.nom}${holo ? ` <span class="holo-tag inline">Holo</span>` : ""}</b><small>${c.franchise} · ${RAR[c.rarete].nom}${S.owned[c.slug] ? ` · ×${S.owned[c.slug]}` : ""}</small></span></button>`;
+
+  function renderAuctions() {
+    const err = G.canSell(S), n = now();
+    const live = [...S.encheresMarche].sort((a, b) => a.fin - b.fin);
+    const mine = S.encheres.filter((a) => a.statut === "active"), done = S.encheres.filter((a) => a.statut !== "active").slice(0, 10);
+    $("#m-body").innerHTML = `
+      <div class="sales-head">
+        <p class="muted">Enchérissez : vos coins sont bloqués, et rendus si quelqu'un vous dépasse. Chaque enchère doit dépasser la précédente d'au moins ${pct(EN.incrementMin * 100)}.</p>
+        <button class="btn" id="new-auction" ${err ? "disabled" : ""}>Mettre une carte aux enchères</button>
+      </div>
+      ${err ? `<p class="note">${err}</p>` : ""}
+      <div class="book auctions">
+        <div class="book-head"><span>Carte</span><span>Offre actuelle</span><span>Enchères</span><span>Meneur</span><span>Fin</span><span></span></div>
+        ${live.map((a) => { const c = G.bySlug[a.slug], lead = a.meneur === "moi"; return `<div class="book-row${lead ? " leading" : ""}">
+          ${cardCell(c, a.holo)}
+          <span><b class="mono">${coin(a.offre || a.depart)}</b>${a.offre ? "" : `<small class="muted"> mise à prix</small>`}<small class="muted block">valeur ~${num(G.marketValue(S, a.slug, a.holo))}</small></span>
+          <span class="mono">${a.nb}</span>
+          <span class="${lead ? "new" : "muted"}">${lead ? "Vous" : a.meneur || "—"}</span>
+          <span class="mono muted">${until(a.fin)}</span>
+          <form class="bid" data-bid="${a.id}"><input type="number" min="${G.minBid(a)}" value="${G.minBid(a)}" aria-label="Montant"><button class="btn sm">Enchérir</button></form>
+        </div>`; }).join("")}
+      </div>
+      <h3 class="sub">Mes enchères</h3>
+      ${mine.length || done.length ? `<div class="book">${[...mine, ...done].map((a) => { const c = G.bySlug[a.slug]; return `<div class="book-row mine">
+        ${cardCell(c, a.holo)}
+        <b class="mono">${coin(a.offre || a.depart)}</b>
+        <span class="muted small">${a.statut === "active" ? `${a.nb} enchère${a.nb > 1 ? "s" : ""}${a.meneur ? ` · ${a.meneur} mène` : ""}` : STATUT[a.statut] + (a.net ? ` · +${num(a.net)}` : "")}</span>
+        <span class="mono muted">${a.statut === "active" ? until(a.fin) : ""}</span>
+        <span></span>
+      </div>`; }).join("")}</div>` : `<p class="empty-note">Aucune enchère.</p>`}`;
+  }
+
+  function renderOffers() {
+    const n = now(), mine = S.offres.slice(0, 20);
+    $("#m-body").innerHTML = `
+      <h3 class="sub first">Offres reçues sur vos cartes</h3>
+      ${S.offresRecues.length ? `<div class="book">${S.offresRecues.map((o) => { const c = G.bySlug[o.slug]; return `<div class="book-row mine">
+        ${cardCell(c, o.holo)}
+        <b class="mono">${coin(o.prix)}</b>
+        <span class="muted small">${o.acheteur} · vous recevrez ${num(G.netOf(o.prix))} · valeur ~${num(G.marketValue(S, o.slug, o.holo))}</span>
+        <span class="mono muted">${until(o.fin)}</span>
+        <button class="btn sm" data-accept="${o.id}">Accepter</button>
+      </div>`; }).join("")}</div>` : `<p class="empty-note">Aucune offre pour l'instant. Les autres joueurs font des offres sur les cartes que vous possédez.</p>`}
+      <div class="sales-head">
+        <h3 class="sub">Mes offres d'achat</h3>
+        <button class="btn" id="new-offer">Faire une offre d'achat</button>
+      </div>
+      <p class="muted small">Proposez un prix pour une carte qui n'est pas en vente : vos coins sont bloqués jusqu'à ce qu'un vendeur accepte, et rendus si l'offre expire (${OF.dureeH} h). Plus l'offre est proche de la valeur de marché, plus elle part vite.</p>
+      ${mine.length ? `<div class="book">${mine.map((o) => { const c = G.bySlug[o.slug]; return `<div class="book-row mine">
+        ${cardCell(c, o.holo)}
+        <b class="mono">${coin(o.prix)}</b>
+        <span class="muted small">${o.statut === "active" ? `valeur ~${num(G.marketValue(S, o.slug, o.holo))}` : STATUT[o.statut]}</span>
+        <span class="mono muted">${o.statut === "active" ? until(o.fin) : ""}</span>
+        ${o.statut === "active" ? `<button class="btn ghost sm" data-cancel-offer="${o.id}">Annuler</button>` : "<span></span>"}
+      </div>`; }).join("")}</div>` : `<p class="empty-note">Aucune offre d'achat.</p>`}`;
+  }
+
+  // choisir une carte du catalogue (offre d'achat)
+  function pickCatalog() {
+    showModal(`<div><p class="kicker">Offre d'achat</p><h2>Quelle carte voulez-vous ?</h2>
+      <div class="toolbar"><input id="pc-q" type="search" placeholder="Nom ou franchise…" autofocus>
+        <label class="check"><input id="pc-wish" type="checkbox" ${Object.keys(S.souhaits).length ? "checked" : ""}> ♥ Ma liste</label></div>
+      <div class="book" id="pc-list"></div></div>`, "wide");
+    const draw = () => {
+      const q = $("#pc-q").value.trim().toLowerCase(), wish = $("#pc-wish").checked;
+      const list = G.chars.filter((c) => (!wish || S.souhaits[c.slug]) && (!q || (c.nom + " " + c.franchise).toLowerCase().includes(q))).slice(0, 40);
+      $("#pc-list").innerHTML = list.map((c) => `<div class="book-row mine">${cardCell(c)}<b class="mono">${coin(G.marketValue(S, c.slug))}</b><span class="muted small">valeur de marché</span><span></span>
+        <button class="btn sm" data-offer="${c.slug}">Choisir</button></div>`).join("") || `<p class="empty-note">Aucune carte.</p>`;
+    };
+    $("#pc-q").addEventListener("input", draw); $("#pc-wish").addEventListener("input", draw); draw();
+  }
+  function offerForm(slug) {
+    const c = G.bySlug[slug], v = G.marketValue(S, slug);
+    showModal(`
+      <div class="sheet-card">${cardHTML(c, { noQty: true })}</div>
+      <form id="offer-form" class="sheet-body" data-slug="${slug}">
+        <p class="kicker">Offre d'achat</p><h2>${c.nom}</h2>
+        <p class="muted">Valeur de marché : ${coin(v)} · vous en avez ×${S.owned[slug] || 0}</p>
+        <label class="field">Votre offre en coins<input id="offer-price" type="number" min="${M.prixMin}" step="1" value="${v}" required></label>
+        <p class="note">Ces coins sont bloqués tout de suite. Si un vendeur accepte, la carte est à vous ; sinon ils vous sont rendus au bout de ${OF.dureeH} h (ou si vous annulez).</p>
+        <div class="row"><button class="btn" type="submit">Envoyer l'offre</button><button type="button" class="btn ghost" data-close>Annuler</button></div>
+      </form>`, "sheet-char");
+  }
+  function auctionForm(slug, holo = false) {
+    const err = G.canSell(S); if (err) return toast(err);
+    const c = G.bySlug[slug], v = G.marketValue(S, slug, holo);
+    showModal(`
+      <div class="sheet-card">${cardHTML(c, { noQty: true, holo })}</div>
+      <form id="auction-form" class="sheet-body" data-slug="${slug}" data-holo="${holo ? 1 : ""}">
+        <p class="kicker">Enchère${holo ? " · holo" : ""}</p><h2>${c.nom}</h2>
+        <p class="muted">Valeur de marché : ${coin(v)}</p>
+        <label class="field">Mise à prix<input id="auction-start" type="number" min="${M.prixMin}" step="1" value="${Math.max(1, Math.round(v * 0.6))}" required></label>
+        <label class="field">Durée<select id="auction-duree">${EN.durees.map((h) => `<option value="${h}" ${h === 24 ? "selected" : ""}>${dureeTxt(h)}</option>`).join("")}</select></label>
+        <p class="note">La carte quitte votre collection pendant l'enchère. À la fin, elle part au meilleur enchérisseur (moins ${pct(M.commission * 100)} de commission) ; sans enchère, elle revient.</p>
+        <div class="row"><button class="btn" type="submit">Lancer l'enchère</button><button type="button" class="btn ghost" data-close>Annuler</button></div>
+      </form>`, "sheet-char");
+  }
+
   function renderMySales() {
     const err = G.canSell(S), n = now(), active = G.activeListings(S);
     const past = S.annonces.filter((a) => a.statut !== "active").slice(0, 20);
@@ -915,13 +1039,13 @@
       <p class="note">Prix libres au marché, sans plafond : c'est l'offre et la demande qui fixent la valeur de chaque carte (voir « Dernières ventes » sur chaque fiche). Commission de ${pct(M.commission * 100)} sur chaque vente. Vente rapide : ${pct(CONFIG.economy.venteRapide * 100)} du prix de référence, payée tout de suite par le site.</p>`;
   }
 
-  function pickToSell() {
+  function pickToSell(mode = "sell") {
     const err = G.canSell(S); if (err) return toast(err);
     const mine = G.chars.filter((c) => S.owned[c.slug])
       .sort((a, b) => (S.owned[b.slug] > 1) - (S.owned[a.slug] > 1) || G.rank(b.rarete) - G.rank(a.rarete));
     if (!mine.length) return toast("Votre collection est vide.");
     showModal(`<div><p class="kicker">Marché</p><h2>Choisir une carte</h2><p class="muted">Conseil : vendez plutôt vos doublons.</p>
-      <div class="grid picker">${mine.map((c) => `<div class="pick" data-sell="${c.slug}">${cardHTML(c)}</div>`).join("")}</div></div>`, "wide");
+      <div class="grid picker">${mine.map((c) => `<div class="pick" ${mode === "auction" ? "data-auction" : "data-sell"}="${c.slug}">${cardHTML(c)}</div>`).join("")}</div></div>`, "wide");
   }
 
   function sellForm(slug, holo = false) {
@@ -966,10 +1090,22 @@
     }
     if (!events.length) return;
     renderWallet();
-    events.forEach((e) => toast(e.type === "vendue"
-      ? `Vendu : ${G.bySlug[e.a.slug].nom} · +${coin(e.a.net)}`
-      : `Annonce expirée : ${G.bySlug[e.a.slug].nom} revient dans votre collection`));
-    if (current() === "marche" && mTab === "ventes") renderMySales();
+    const nom = (slug) => G.bySlug[slug].nom;
+    const MSG = {
+      vendue: (e) => `Vendu : ${nom(e.a.slug)} · +${coin(e.a.net)}`,
+      expiree: (e) => `Annonce expirée : ${nom(e.a.slug)} revient dans votre collection`,
+      souhait: (e) => `<span class="wish">♥</span> ${nom(e.slug)} est en ${e.ou === "enchère" ? "enchère" : "vente"} à ${coin(e.prix)}`,
+      "enchere-recue": (e) => `Nouvelle enchère sur ${nom(e.a.slug)} : ${coin(e.a.offre)}`,
+      "enchere-finie": (e) => e.a.offre ? `Enchère terminée : ${nom(e.a.slug)} vendu ${coin(e.a.offre)} (+${num(e.a.net)})` : `Enchère sans offre : ${nom(e.a.slug)} revient`,
+      depasse: (e) => `Vous êtes dépassé sur ${nom(e.a.slug)} (${coin(e.a.offre)}) : coins rendus`,
+      gagnee: (e) => `Enchère gagnée : ${nom(e.a.slug)} pour ${coin(e.a.offre)} !`,
+      "offre-acceptee": (e) => `Offre acceptée : ${nom(e.o.slug)} est à vous`,
+      "offre-expiree": (e) => `Offre expirée : ${nom(e.o.slug)} (coins rendus)`,
+      "offre-recue": (e) => `${e.o.acheteur} propose ${coin(e.o.prix)} pour votre ${nom(e.o.slug)}`,
+    };
+    events.forEach((e) => MSG[e.type] && toast(MSG[e.type](e)));
+    if (current() === "marche" && ["ventes", "encheres", "offres"].includes(mTab) && $("#modal").hidden) renderMarket();
+    if (current() === "hub" && $("#stage").hidden && $("#modal").hidden && events.some((e) => e.type.startsWith("offre"))) renderHub();
     if (current() === "classeur") renderPages();
   }
   // comptes à rebours affichés
@@ -1006,6 +1142,33 @@
       return toast(`Récompense : ${rewardText(res.recompense)}`);
     }
     if (at("#atelier")) return showAtelier();
+    if (at("[data-goto-tab]")) { mTab = at("[data-goto-tab]").dataset.gotoTab; return; }
+    if (at("[data-wish]")) {
+      const slug = at("[data-wish]").dataset.wish, on = G.toggleWish(S, slug);
+      persist(); openSheet(slug);
+      return toast(on ? `♥ ${G.bySlug[slug].nom} ajouté à votre liste : vous serez prévenu quand il sera en vente` : "Retiré de votre liste de souhaits");
+    }
+    if (at("[data-showcase]")) {
+      const slug = at("[data-showcase]").dataset.showcase, res = G.toggleShowcase(S, slug);
+      if (res.error) return toast(res.error);
+      persist(); openSheet(slug); return toast(res.on ? "Ajouté à votre vitrine" : "Retiré de votre vitrine");
+    }
+    if (at("[data-auction]")) return auctionForm(at("[data-auction]").dataset.auction, !!at("[data-auction]").dataset.holo);
+    if (at("#new-auction")) return pickToSell("auction");
+    if (at("[data-offer]")) return offerForm(at("[data-offer]").dataset.offer);
+    if (at("#new-offer")) return pickCatalog();
+    if (at("[data-cancel-offer]")) {
+      const res = G.cancelOffer(S, at("[data-cancel-offer]").dataset.cancelOffer, now());
+      if (res.error) return toast(res.error);
+      persist(); renderMarket(); return toast("Offre annulée : coins rendus");
+    }
+    if (at("[data-accept]")) {
+      const o = S.offresRecues.find((x) => x.id === at("[data-accept]").dataset.accept);
+      if (!o || !confirm(`Vendre ${G.bySlug[o.slug].nom} à ${o.acheteur} pour ${num(o.prix)} coins (vous recevez ${num(G.netOf(o.prix))}) ?`)) return;
+      const res = G.acceptOffer(S, o.id, now());
+      if (res.error) return toast(res.error);
+      persist(); renderMarket(); return toast(`Vendu : ${res.c.nom} · +${coin(res.net)}`);
+    }
     if (at("[data-at-r]")) { AT.r = at("[data-at-r]").dataset.atR; return showAtelier(); }
     if (at("[data-craft]")) {
       const res = G.craft(S, at("[data-craft]").dataset.craft, now());
@@ -1042,6 +1205,25 @@
     const card = at(".card[data-slug]"); if (card) openSheet(card.dataset.slug);
   });
   document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (f.matches("form.bid")) {
+      e.preventDefault();
+      const res = G.bid(S, f.dataset.bid, Number(f.querySelector("input").value), now());
+      if (res.error) return toast(res.error);
+      persist(); renderMarket(); return toast(`Vous menez l'enchère : ${coin(res.enchere.offre)} (coins bloqués)`);
+    }
+    if (f.id === "offer-form") {
+      e.preventDefault();
+      const res = G.postOffer(S, f.dataset.slug, Number($("#offer-price").value), now());
+      if (res.error) return toast(res.error);
+      persist(); closeModal(); mTab = "offres"; if (current() === "marche") renderMarket(); return toast(`Offre envoyée : ${coin(res.offre.prix)} bloqués`);
+    }
+    if (f.id === "auction-form") {
+      e.preventDefault();
+      const res = G.createAuction(S, f.dataset.slug, Number($("#auction-start").value), Number($("#auction-duree").value), now(), !!f.dataset.holo);
+      if (res.error) return toast(res.error);
+      persist(); closeModal(); mTab = "encheres"; refresh(); return toast(`Enchère lancée : ${G.bySlug[f.dataset.slug].nom}`);
+    }
     if (e.target.id !== "sell-form") return;
     e.preventDefault();
     const slug = e.target.dataset.slug;

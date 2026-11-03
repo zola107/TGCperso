@@ -243,6 +243,72 @@
         return (d.god && d.cards.length === 5 && d.cards.every((x) => G.rank(x.c.rarete) >= G.rank("legendaire"))) || "god pack incorrect";
       });
 
+      /* ---------- marché avancé ---------- */
+      const ARG = CONFIG.ranks[1].xp;
+      test("Enchère : la carte est bloquée, un acheteur enchérit, vente au meilleur prix moins la commission", () => {
+        const S = G.newState(0); S.xp = ARG; S.owned[PC] = 1; G.tickMarket(S, 0, rng);
+        const a = G.createAuction(S, PC, 10, 1, 0).enchere;
+        if (!a || S.owned[PC]) return "carte non bloquée";
+        G.tickMarket(S, 10 * 60e3, () => 0);          // un acheteur simulé enchérit
+        if (!a.offre) return "aucune enchère simulée";
+        const c0 = S.coins, offre = a.offre;
+        G.tickMarket(S, 2 * 3600e3, () => 0.99);      // fin de l'enchère
+        return (a.statut === "vendue" && S.coins - c0 === Math.floor(offre * (1 - CONFIG.market.commission))) || `statut ${a.statut}, reçu ${S.coins - c0}`;
+      });
+      test("Enchère sans offre : la carte revient", () => {
+        const S = G.newState(0); S.xp = ARG; S.owned[PC] = 1; G.tickMarket(S, 0, rng);
+        const a = G.createAuction(S, PC, 1e9, 0.25, 0).enchere;   // mise à prix trop haute : personne n'enchérit
+        G.tickMarket(S, 3600e3, () => 0.99);
+        return (a.statut === "invendue" && S.owned[PC] === 1) || `statut ${a.statut}`;
+      });
+      test("Enchérir : coins bloqués, rendus si on est dépassé, carte gagnée sinon", () => {
+        const S = G.newState(0); S.coins = 1e6; G.tickMarket(S, 0, rng);
+        const a = S.encheresMarche[0], m = G.minBid(a);
+        if (G.bid(S, a.id, m - 1, 0).error === undefined) return "enchère trop basse acceptée";
+        G.bid(S, a.id, m, 0);
+        if (S.coins !== 1e6 - m || a.meneur !== "moi") return "coins non bloqués";
+        const S2 = JSON.parse(JSON.stringify(S));
+        G.tickMarket(S, 60e3, () => 0);                  // un autre joueur surenchérit
+        if (a.meneur === "moi" || S.coins !== 1e6) return "coins non rendus après dépassement";
+        const a2 = S2.encheresMarche[0];
+        G.tickMarket(S2, a2.fin + 1, () => 0.999);       // personne ne surenchérit : on gagne
+        return (S2.owned[a2.slug] >= 1 && S2.coins === 1e6 - m) || "carte non reçue";
+      });
+      test("Offre d'achat : coins bloqués, carte reçue si un vendeur accepte, coins rendus si elle expire", () => {
+        const S = G.newState(0); S.coins = 1000;
+        const o = G.postOffer(S, PC, 100, 0).offre;
+        if (S.coins !== 900) return "coins non bloqués";
+        G.tickMarket(S, 60e3, () => 0);
+        if (o.statut !== "acceptee" || !S.owned[PC]) return "offre non acceptée";
+        const o2 = G.postOffer(S, PC, 1, 0).offre;
+        G.tickMarket(S, CONFIG.market.offres.dureeH * 3600e3 + 1, () => 0.999);
+        if (o2.statut !== "expiree" || S.coins !== 900) return "coins non rendus à l'expiration";
+        const o3 = G.postOffer(S, PC, 50, 0).offre; G.cancelOffer(S, o3.id, 0);
+        return (S.coins === 900) || "coins non rendus à l'annulation";
+      });
+      test("Offre reçue : l'accepter vend la carte au prix proposé moins la commission", () => {
+        const S = G.newState(0); S.owned[PC] = 2;
+        G.tickMarket(S, 0, rng); G.tickMarket(S, 3600e3, () => 0);
+        const o = S.offresRecues[0];
+        if (!o) return "aucune offre reçue";
+        const c0 = S.coins, r = G.acceptOffer(S, o.id, 3600e3);
+        return (!r.error && S.owned[PC] === 1 && S.coins - c0 === Math.floor(o.prix * (1 - CONFIG.market.commission))) || (r.error || "montant");
+      });
+      test(`Liste de souhaits et vitrine (${CONFIG.vitrine} cartes max, possédées seulement)`, () => {
+        const S = G.newState(0);
+        if (!G.toggleWish(S, PC) || G.toggleWish(S, PC)) return "liste de souhaits";
+        if (!G.toggleShowcase(S, PC).error) return "vitrine sans posséder la carte";
+        const mine = G.chars.slice(0, CONFIG.vitrine + 1).map((c) => c.slug);
+        mine.forEach((x) => (S.owned[x] = 1));
+        mine.slice(0, CONFIG.vitrine).forEach((x) => G.toggleShowcase(S, x));
+        return (!!G.toggleShowcase(S, mine[CONFIG.vitrine]).error && S.vitrine.length === CONFIG.vitrine) || "vitrine trop grande";
+      });
+      test("Valeur de la collection : somme des valeurs de marché (holo ×5)", () => {
+        const S = G.newState(0); S.owned[PC] = 2; S.holo[PC] = 1;
+        const ref = G.RAR[G.bySlug[PC].rarete].prix;
+        return G.collectionValue(S) === ref + ref * CONFIG.holo.valeur || `valeur ${G.collectionValue(S)}`;
+      });
+
       /* ---------- simulation de l'économie ---------- */
       const simRows = [], dist = Object.fromEntries(ORDER.map((r) => [r, 0]));
       let loop = false, freeQuick = 0;

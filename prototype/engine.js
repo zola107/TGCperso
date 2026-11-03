@@ -119,7 +119,8 @@
       return { coins: config.economy.depart, xp: 0, owned: {}, vus: {}, franchises: {}, pity: {}, daily: "",
         created: now, log: [], annonces: [], marche: [], nextId: 1, lastTick: now,
         gratuit: { stock: FREE.max, t: now }, serie: { n: 0, last: "" }, hebdo: "", bons: {}, packJour: "", recent: [],
-        holo: {}, serials: {}, eclats: 0, stats: {}, defis: {}, rangMax: 0, saison: 0, saisons: [], histo: {} };
+        holo: {}, serials: {}, eclats: 0, stats: {}, defis: {}, rangMax: 0, saison: 0, saisons: [], histo: {},
+        encheres: [], encheresMarche: [], offres: [], offresRecues: [], souhaits: {}, vitrine: [] };
     }
 
     /* ---------- calendrier (heure locale du joueur ; côté serveur : son fuseau) ---------- */
@@ -485,10 +486,15 @@
       return { c, isNew, holo: a.holo, xp: g.xp, completed: g.completed };
     }
 
+    // perso tiré pour une annonce simulée : de temps en temps, un perso de la liste de souhaits
+    function fakePick(S, rng, table = config.standardOdds) {
+      const wished = Object.keys(S.souhaits || {}).filter((s) => bySlug[s]);
+      if (wished.length && rng() < 0.1) return bySlug[wished[Math.floor(rng() * wished.length)]];
+      const pool = byRarity[drawFrom(table, rng)];
+      return pool[Math.floor(rng() * pool.length)];
+    }
     function fakeListing(S, now, rng, age) {
-      const r = drawFrom(config.standardOdds, rng);
-      const pool = byRarity[r];
-      const c = pool[Math.floor(rng() * pool.length)];
+      const c = fakePick(S, rng);
       const holo = rng() < 0.03;
       const prix = Math.max(M.prixMin, Math.round(marketValue(S, c.slug, holo) * (0.7 + rng() * 1.8)));
       return { id: "m" + S.nextId++, slug: c.slug, prix, holo, vendeur: SELLERS[Math.floor(rng() * SELLERS.length)], cree: now - age };
@@ -529,7 +535,189 @@
         return true;
       });
       const init = !S.marche.length;
-      while (S.marche.length < M.annoncesFictives) S.marche.push(fakeListing(S, now, rng, init ? rng() * 60 * H : 0));
+      while (S.marche.length < M.annoncesFictives) {
+        const x = fakeListing(S, now, rng, init ? rng() * 60 * H : 0);
+        S.marche.push(x);
+        if (!init && S.souhaits[x.slug]) events.push({ type: "souhait", slug: x.slug, prix: x.prix, ou: "annonce" });
+      }
+      return events.concat(tickTrading(S, now, dt, rng));
+    }
+
+    /* ---------- enchères ---------- */
+    const EN = M.encheres, OF = M.offres;
+    const minBid = (a) => a.offre ? Math.ceil(a.offre * (1 + EN.incrementMin)) : a.depart;
+    const bidder = (rng) => SELLERS[Math.floor(rng() * SELLERS.length)];
+
+    function createAuction(S, slug, depart, heures, now, holo = false) {
+      const err = canSell(S);
+      if (err) return { error: err };
+      if (S.encheres.filter((a) => a.statut === "active").length >= EN.max) return { error: `Maximum ${EN.max} enchères en cours.` };
+      if (!EN.durees.includes(heures)) return { error: "Durée inconnue." };
+      const c = bySlug[slug];
+      if (!c || (holo ? holoCount(S, slug) : plainCount(S, slug)) < 1) return { error: "Carte non possédée." };
+      depart = Math.round(depart);
+      if (!(depart >= M.prixMin)) return { error: `Mise à prix d'au moins ${M.prixMin} coin.` };
+      take(S, slug, 1, holo); // séquestre
+      const a = { id: "e" + S.nextId++, slug, holo: !!holo, depart, offre: 0, meneur: null, nb: 0, cree: now, fin: now + heures * H, statut: "active" };
+      S.encheres.unshift(a);
+      bump(S, "annonces");
+      return { enchere: a };
+    }
+    // Enchérir sur une enchère d'un autre joueur : les coins sont bloqués jusqu'à la fin (rendus si on est dépassé)
+    function bid(S, id, montant, now) {
+      const a = S.encheresMarche.find((x) => x.id === id);
+      if (!a || a.fin <= now) return { error: "Cette enchère est terminée." };
+      montant = Math.round(montant);
+      if (montant < minBid(a)) return { error: `L'enchère minimum est de ${minBid(a)} coins.` };
+      const mine = a.meneur === "moi" ? a.offre : 0;  // on ne paie que la différence si on menait déjà
+      if (S.coins + mine < montant) return { error: "Pas assez de coins." };
+      S.coins += mine - montant;
+      a.offre = montant; a.meneur = "moi"; a.nb++;
+      log(S, "enchere", -(montant - mine), `Enchère : ${bySlug[a.slug].nom}`, now);
+      return { enchere: a };
+    }
+    function fakeAuction(S, now, rng) {
+      // aux enchères, les joueurs mettent surtout leurs belles cartes
+      const c = fakePick(S, rng, { rare: 40, epique: 34, legendaire: 18, mythique: 7, spectaculaire: 1 }), holo = rng() < 0.04;
+      const v = marketValue(S, c.slug, holo);
+      return { id: "f" + S.nextId++, slug: c.slug, holo, depart: Math.max(M.prixMin, Math.round(v * (0.3 + rng() * 0.5))),
+        offre: 0, meneur: null, nb: 0, vendeur: bidder(rng), cree: now, fin: now + (5 + rng() * 180) * 60e3 };
+    }
+    // Un acheteur simulé enchérit tant que le prix reste sous ce que la carte « vaut » pour lui
+    function simulatedBid(S, a, dt, rng) {
+      const v = marketValue(S, a.slug, a.holo) * (0.9 + rng() * 0.8);
+      const p = a.offre || a.depart;
+      if (p >= v * 1.5) return false;
+      const tau = EN.delaiS * 1000 * Math.max(0.3, p / v) ** 3;
+      if (rng() >= 1 - Math.exp(-dt / tau)) return false;
+      a.offre = a.offre ? Math.ceil(a.offre * (1 + EN.incrementMin + rng() * 0.1)) : a.depart;
+      a.nb++;
+      return true;
+    }
+
+    /* ---------- offres d'achat ---------- */
+    function postOffer(S, slug, prix, now, holo = false) {
+      const c = bySlug[slug];
+      if (!c) return { error: "Carte inconnue." };
+      if (S.offres.filter((o) => o.statut === "active").length >= OF.max) return { error: `Maximum ${OF.max} offres en cours.` };
+      if (!holo && plainCount(S, slug) >= config.maxExemplaires) return { error: `Vous avez déjà ${config.maxExemplaires} exemplaires.` };
+      prix = Math.round(prix);
+      if (!(prix >= M.prixMin)) return { error: `Offre d'au moins ${M.prixMin} coin.` };
+      if (S.coins < prix) return { error: "Pas assez de coins." };
+      S.coins -= prix; // coins bloqués jusqu'à ce qu'un vendeur accepte ou que l'offre expire
+      const o = { id: "o" + S.nextId++, slug, holo: !!holo, prix, cree: now, fin: now + OF.dureeH * H, statut: "active" };
+      S.offres.unshift(o);
+      log(S, "offre", -prix, `Offre d'achat : ${c.nom}${holo ? " (holo)" : ""} (coins bloqués)`, now);
+      return { offre: o };
+    }
+    function cancelOffer(S, id, now) {
+      const o = S.offres.find((x) => x.id === id && x.statut === "active");
+      if (!o) return { error: "Offre introuvable." };
+      o.statut = "annulee"; o.closed = now;
+      S.coins += o.prix;
+      log(S, "offre", o.prix, `Offre annulée : ${bySlug[o.slug].nom}`, now);
+      return { offre: o };
+    }
+    // Accepter une offre faite par un autre joueur sur une de vos cartes
+    function acceptOffer(S, id, now) {
+      const o = S.offresRecues.find((x) => x.id === id);
+      if (!o || o.fin <= now) return { error: "Cette offre n'est plus valable." };
+      if ((o.holo ? holoCount(S, o.slug) : plainCount(S, o.slug)) < 1) return { error: "Vous n'avez plus cette carte." };
+      take(S, o.slug, 1, o.holo);
+      const net = netOf(o.prix);
+      S.coins += net;
+      S.offresRecues = S.offresRecues.filter((x) => x !== o);
+      record(S, o.slug, o.prix, o.holo, now);
+      bump(S, "ventes");
+      log(S, "vente", net, `Offre acceptée : ${bySlug[o.slug].nom} (${o.acheteur})`, now);
+      return { net, c: bySlug[o.slug] };
+    }
+
+    /* ---------- liste de souhaits, vitrine, valeur de la collection ---------- */
+    const toggleWish = (S, slug) => { if (S.souhaits[slug]) delete S.souhaits[slug]; else S.souhaits[slug] = true; return !!S.souhaits[slug]; };
+    function toggleShowcase(S, slug) {
+      const i = S.vitrine.indexOf(slug);
+      if (i >= 0) { S.vitrine.splice(i, 1); return { on: false }; }
+      if (!S.owned[slug]) return { error: "Il faut posséder la carte." };
+      if (S.vitrine.length >= config.vitrine) return { error: `La vitrine contient ${config.vitrine} cartes au maximum.` };
+      S.vitrine.push(slug);
+      return { on: true };
+    }
+    function collectionValue(S) {
+      return Object.keys(S.owned).reduce((a, slug) => a + plainCount(S, slug) * marketValue(S, slug) + holoCount(S, slug) * marketValue(S, slug, true), 0);
+    }
+
+    // Prototype : enchères et offres des autres joueurs (simulées)
+    function tickTrading(S, now, dt, rng) {
+      const events = [];
+      // mes enchères : des acheteurs simulés enchérissent ; à la fin, vente ou retour de la carte
+      S.encheres.filter((a) => a.statut === "active").forEach((a) => {
+        if (a.fin > now && simulatedBid(S, a, dt, rng)) { a.meneur = bidder(rng); events.push({ type: "enchere-recue", a }); }
+        if (a.fin <= now) {
+          if (a.offre) {
+            a.statut = "vendue"; a.net = netOf(a.offre);
+            S.coins += a.net;
+            record(S, a.slug, a.offre, a.holo, now);
+            bump(S, "ventes");
+            log(S, "vente", a.net, `Enchère remportée par ${a.meneur} : ${bySlug[a.slug].nom} (${a.offre})`, now);
+          } else {
+            a.statut = "invendue";
+            S.owned[a.slug] = (S.owned[a.slug] || 0) + 1;
+            if (a.holo) S.holo[a.slug] = holoCount(S, a.slug) + 1;
+          }
+          events.push({ type: "enchere-finie", a });
+        }
+      });
+      // enchères des autres : on peut s'y faire dépasser, ou les gagner
+      S.encheresMarche = S.encheresMarche.filter((a) => {
+        if (a.fin > now) {
+          const leader = a.meneur, before = a.offre;
+          if (simulatedBid(S, a, dt, rng)) {
+            if (leader === "moi") { S.coins += before; log(S, "enchere", before, `Enchère dépassée : ${bySlug[a.slug].nom} (coins rendus)`, now); events.push({ type: "depasse", a }); }
+            a.meneur = bidder(rng);
+          }
+          return true;
+        }
+        if (a.offre) record(S, a.slug, a.offre, a.holo, now);
+        if (a.meneur === "moi") {
+          const c = bySlug[a.slug], g = give(S, [{ c, isNew: !S.owned[c.slug], holo: a.holo }], false, rng);
+          bump(S, "achats");
+          events.push({ type: "gagnee", a, eclats: g.eclats });
+        }
+        return false;
+      });
+      while (S.encheresMarche.length < EN.fictives) {
+        const x = fakeAuction(S, now, rng);
+        S.encheresMarche.push(x);
+        if (S.souhaits[x.slug]) events.push({ type: "souhait", slug: x.slug, prix: x.depart, ou: "enchère" });
+      }
+      // mes offres d'achat : un vendeur accepte si le prix est assez bon
+      S.offres.filter((o) => o.statut === "active").forEach((o) => {
+        if (o.fin <= now) {
+          o.statut = "expiree"; o.closed = now; S.coins += o.prix;
+          log(S, "offre", o.prix, `Offre expirée : ${bySlug[o.slug].nom} (coins rendus)`, now);
+          events.push({ type: "offre-expiree", o });
+          return;
+        }
+        const tau = M.acheteurDelaiS * 1000 * Math.max(0.2, marketValue(S, o.slug, o.holo) / o.prix) ** 3;
+        if (rng() < 1 - Math.exp(-dt / tau)) {
+          o.statut = "acceptee"; o.closed = now;
+          const c = bySlug[o.slug], g = give(S, [{ c, isNew: !S.owned[c.slug], holo: o.holo }], false, rng);
+          record(S, o.slug, o.prix, o.holo, now);
+          bump(S, "achats");
+          events.push({ type: "offre-acceptee", o, eclats: g.eclats });
+        }
+      });
+      // offres reçues : d'autres joueurs veulent vos cartes
+      S.offresRecues = S.offresRecues.filter((o) => o.fin > now && (o.holo ? holoCount(S, o.slug) : plainCount(S, o.slug)) > 0);
+      const mine = Object.keys(S.owned);
+      if (mine.length && S.offresRecues.length < OF.recues && rng() < 1 - Math.exp(-dt / (2 * 60e3))) {
+        const slug = mine[Math.floor(rng() * mine.length)], holo = holoCount(S, slug) > 0 && rng() < 0.5;
+        const o = { id: "r" + S.nextId++, slug, holo, prix: Math.max(M.prixMin, Math.round(marketValue(S, slug, holo) * (0.8 + rng() * 0.8))),
+          acheteur: bidder(rng), cree: now, fin: now + OF.dureeRecueH * H };
+        S.offresRecues.push(o);
+        events.push({ type: "offre-recue", o });
+      }
       return events;
     }
 
@@ -541,6 +729,7 @@
       statValue, defisList, claimable, claimDefi, craft, holoCount, plainCount, give,
       refPrice, quickSellValue, quickSell, duplicatesValue, quickSellDuplicates,
       netOf, activeListings, canSell, listCard, cancelListing, buyListing, tickMarket, marketValue,
+      minBid, createAuction, bid, postOffer, cancelOffer, acceptOffer, toggleWish, toggleShowcase, collectionValue,
     };
   }
 

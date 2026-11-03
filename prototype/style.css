@@ -932,3 +932,33 @@ button.mini-pack:hover { transform: translateY(-4px) rotate(-2deg); }
   .defi > .mono { grid-column: 2; grid-row: 2; }
   .defi .btn, .defi-ok, .defi-wait { grid-column: 2; grid-row: 1; }
 }
+
+/* ============================================================
+   MARCHÉ : enchères, offres, liste de souhaits, vitrine
+   ============================================================ */
+.wish { color: #ff4f8b; }
+.block { display: block; }
+.sub.first { margin-top: 0; }
+.auctions .book-head, .auctions .book-row { grid-template-columns: minmax(0, 2fr) 130px 70px minmax(0, 1fr) 90px 190px; }
+.book-row.leading { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+form.bid { display: flex; gap: 6px; justify-self: end; }
+form.bid input { width: 92px; background: var(--bg); border: var(--bw) solid var(--line-2); border-radius: var(--r); padding: 6px 8px; font: 600 .82rem var(--f-mono); }
+.field select { background: var(--bg); border: var(--bw) solid var(--line-2); border-radius: var(--r); padding: 10px 12px; font-size: 1rem; }
+
+.p-vitrine { grid-column: span 12; }
+.vitrine { display: grid; grid-template-columns: 240px 1fr; gap: 22px; align-items: center; }
+.vitrine-value .big-num { font-size: 2.2rem; margin: 6px 0 2px; }
+.vitrine-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.vitrine-cards .empty-note { grid-column: 1 / -1; }
+.vitrine-cards .card-name { font-size: .95rem; }
+
+@media (max-width: 1000px) {
+  .auctions .book-row { grid-template-columns: 1fr auto; }
+  .auctions .book-row > :nth-child(3), .auctions .book-row > :nth-child(4) { display: none; }
+  form.bid { grid-column: 1 / -1; justify-self: stretch; }
+  form.bid input { flex: 1; }
+  .vitrine { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .vitrine-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

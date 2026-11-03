@@ -174,7 +174,27 @@ L'objectif final : **un marché où les cartes prennent de la valeur parce qu'el
 4. **Annuler** : la carte revient. Une annonce expire au bout de **72 h**.
 5. **Vente rapide** : vendre tout de suite au site, à 20 % du prix de référence.
 
-Règles anti-abus (vraie version) : transaction atomique côté serveur, impossible d'acheter sa propre annonce, **20 annonces actives** max, rang **Argent** minimum pour vendre, compte de plus de 3 jours, journal de toutes les transactions. À venir : enchères, offres d'achat, alerte « liste de souhaits ».
+### Enchères
+
+- Le vendeur fixe une **mise à prix** et une durée (15 min, 1 h, 24 h, 72 h). La carte est bloquée pendant l'enchère.
+- Chaque enchère doit dépasser la précédente d'au moins **5 %**. Les coins de l'enchérisseur sont bloqués, et **rendus automatiquement s'il est dépassé**.
+- À la fin, la carte part au meilleur enchérisseur (le vendeur reçoit le prix − 10 %) ; sans enchère, elle revient au vendeur.
+- 10 enchères en cours au maximum par joueur.
+
+### Offres d'achat
+
+- Un joueur propose un prix pour une carte, même si personne ne la vend : ses coins sont **bloqués** jusqu'à ce qu'un propriétaire accepte, ou **rendus** si l'offre expire (72 h) ou est annulée.
+- Le propriétaire voit les **offres reçues** sur ses cartes et peut accepter en un clic (il reçoit le prix − 10 %).
+- 10 offres en cours au maximum par joueur.
+
+### Liste de souhaits et vitrine
+
+- **Liste de souhaits** : un cœur sur la fiche d'un perso ; le joueur est prévenu dès qu'il apparaît en vente ou aux enchères, et peut filtrer le marché sur sa liste.
+- **Vitrine** : jusqu'à 5 cartes mises en avant sur le profil, avec la **valeur totale de la collection** (somme des valeurs de marché, holo ×5).
+
+### Règles anti-abus (vraie version)
+
+Transaction atomique côté serveur, impossible d'acheter sa propre annonce ni d'enchérir sur sa propre enchère, **20 annonces actives** max, rang **Argent** minimum pour vendre, compte de plus de 3 jours, journal de toutes les transactions.
 
 Dans le prototype, sans serveur, les autres vendeurs et acheteurs sont simulés.
 

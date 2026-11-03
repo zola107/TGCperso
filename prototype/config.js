@@ -150,7 +150,14 @@ const CONFIG = {
     rangMin: "argent",
     annoncesFictives: 30,  // prototype : vendeurs simulés
     acheteurDelaiS: 60,    // prototype : délai moyen d'un acheteur simulé au prix de référence
+    // Enchères : durée au choix ; chaque nouvelle enchère dépasse la précédente d'au moins 5 %.
+    encheres: { durees: [0.25, 1, 24, 72], incrementMin: 0.05, max: 10, fictives: 10, delaiS: 90 },
+    // Offres d'achat : on bloque les coins ; un vendeur accepte si le prix est assez bon.
+    // « recues » : offres que d'autres joueurs font sur vos cartes.
+    offres: { dureeH: 72, max: 10, recues: 4, dureeRecueH: 6 },
   },
+  // Vitrine de profil : les cartes que le joueur met en avant.
+  vitrine: 5,
 
   // Ranked : paliers exponentiels, il faut des milliers de packs pour atteindre Champion.
   ranks: [
