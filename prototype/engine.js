@@ -120,7 +120,7 @@
         created: now, log: [], annonces: [], marche: [], nextId: 1, lastTick: now,
         gratuit: { stock: FREE.max, t: now }, serie: { n: 0, last: "" }, hebdo: "", bons: {}, packJour: "", recent: [],
         holo: {}, serials: {}, eclats: 0, stats: {}, defis: {}, rangMax: 0, saison: 0, saisons: [], histo: {},
-        encheres: [], encheresMarche: [], offres: [], offresRecues: [], souhaits: {}, vitrine: [] };
+        encheres: [], encheresMarche: [], offres: [], offresRecues: [], echanges: [], echangesRecus: [], souhaits: {}, vitrine: [] };
     }
 
     /* ---------- calendrier (heure locale du joueur ; côté serveur : son fuseau) ---------- */
@@ -633,6 +633,106 @@
       return { net, c: bySlug[o.slug] };
     }
 
+    /* ---------- échanges carte contre carte ---------- */
+    const EX = M.echanges;
+    const tradeValue = (S, cards) => cards.reduce((a, x) => a + marketValue(S, x.slug, x.holo), 0);
+    const owns = (S, x) => (x.holo ? holoCount(S, x.slug) : plainCount(S, x.slug));
+    function restore(S, x) {
+      S.owned[x.slug] = (S.owned[x.slug] || 0) + 1;
+      if (x.holo) S.holo[x.slug] = holoCount(S, x.slug) + 1;
+    }
+    // Proposer jusqu'à 3 de ses cartes contre une carte voulue. Les cartes données sont séquestrées.
+    function proposeTrade(S, donne, veut, now) {
+      if (!veut || !bySlug[veut.slug]) return { error: "Carte voulue inconnue." };
+      if (!donne.length) return { error: "Choisissez au moins une carte à donner." };
+      if (donne.length > EX.cartesMax) return { error: `${EX.cartesMax} cartes au maximum.` };
+      if (S.echanges.filter((t) => t.statut === "active").length >= EX.max) return { error: `Maximum ${EX.max} propositions en cours.` };
+      if (!veut.holo && plainCount(S, veut.slug) >= config.maxExemplaires) return { error: `Vous avez déjà ${config.maxExemplaires} exemplaires de cette carte.` };
+      donne = donne.map((x) => ({ slug: x.slug, holo: !!x.holo }));
+      veut = { slug: veut.slug, holo: !!veut.holo };
+      if (donne.some((x) => x.slug === veut.slug && x.holo === veut.holo)) return { error: "Vous ne pouvez pas échanger une carte contre elle-même." };
+      const need = {};
+      donne.forEach((x) => { const k = x.slug + (x.holo ? "*" : ""); need[k] = (need[k] || 0) + 1; });
+      if (donne.some((x) => owns(S, x) < need[x.slug + (x.holo ? "*" : "")])) return { error: "Vous ne possédez pas toutes ces cartes." };
+      donne.forEach((x) => take(S, x.slug, 1, x.holo));
+      const t = { id: "e" + S.nextId++, donne, veut, cree: now, fin: now + EX.dureeH * H, statut: "active" };
+      S.echanges.unshift(t);
+      if (S.echanges.length > 30) S.echanges.length = 30;
+      return { echange: t };
+    }
+    function cancelTrade(S, id, now) {
+      const t = S.echanges.find((x) => x.id === id && x.statut === "active");
+      if (!t) return { error: "Proposition introuvable." };
+      t.statut = "annulee"; t.closed = now;
+      t.donne.forEach((x) => restore(S, x));
+      return { echange: t };
+    }
+    // Accepter un échange proposé par un autre joueur : on donne sa carte, on reçoit les siennes.
+    function acceptTrade(S, id, now, rng = Math.random) {
+      const r = S.echangesRecus.find((x) => x.id === id);
+      if (!r || r.fin <= now) return { error: "Cette proposition n'est plus valable." };
+      if (owns(S, r.veut) < 1) return { error: "Vous n'avez plus cette carte." };
+      take(S, r.veut.slug, 1, r.veut.holo);
+      S.vitrine = S.vitrine.filter((s) => S.owned[s]);
+      S.echangesRecus = S.echangesRecus.filter((x) => x !== r);
+      const g = give(S, r.donne.map((x) => ({ c: bySlug[x.slug], isNew: !S.owned[x.slug], holo: x.holo })), false, rng);
+      bump(S, "echanges");
+      log(S, "echange", 0, `Échange avec ${r.joueur} : ${bySlug[r.veut.slug].nom} contre ${r.donne.map((x) => bySlug[x.slug].nom).join(", ")}`, now);
+      return { recues: r.donne.map((x) => bySlug[x.slug]), eclats: g.eclats, completed: g.completed };
+    }
+    function declineTrade(S, id) {
+      S.echangesRecus = S.echangesRecus.filter((x) => x.id !== id);
+      return {};
+    }
+    // Un joueur simulé veut une de vos cartes et propose 1 ou 2 cartes de valeur proche (souvent des cartes qui vous manquent).
+    function fakeTradeOffer(S, now, rng) {
+      const mine = Object.keys(S.owned);
+      if (!mine.length) return null;
+      const slug = mine[Math.floor(rng() * mine.length)], holo = holoCount(S, slug) > 0 && rng() < 0.3;
+      const c = bySlug[slug], v = marketValue(S, slug, holo), i = ORDER.indexOf(c.rarete);
+      for (let essai = 0; essai < 30; essai++) {
+        const n = rng() < 0.4 ? 2 : 1, donne = [];
+        for (let k = 0; k < n; k++) {
+          const r = ORDER[Math.max(0, Math.min(ORDER.length - 2, i - k - (rng() < 0.3 ? 1 : 0)))];
+          let pool = byRarity[r];
+          const missing = pool.filter((x) => !S.owned[x.slug]);
+          if (missing.length && rng() < 0.6) pool = missing;
+          const x = pool[Math.floor(rng() * pool.length)];
+          if (x.slug !== slug && !donne.some((d) => d.slug === x.slug)) donne.push({ slug: x.slug, holo: false });
+        }
+        const ratio = donne.length ? tradeValue(S, donne) / v : 0;
+        if (ratio >= 0.85 && ratio <= 1.5)
+          return { id: "x" + S.nextId++, veut: { slug, holo }, donne, joueur: bidder(rng), cree: now, fin: now + EX.dureeRecuH * H };
+      }
+      return null;
+    }
+    function tickTrades(S, now, dt, rng) {
+      const events = [];
+      S.echanges.filter((t) => t.statut === "active").forEach((t) => {
+        if (t.fin <= now) {
+          t.statut = "expiree"; t.closed = now;
+          t.donne.forEach((x) => restore(S, x));
+          events.push({ type: "echange-expire", t });
+          return;
+        }
+        const ratio = tradeValue(S, t.donne) / marketValue(S, t.veut.slug, t.veut.holo);
+        if (ratio < EX.ratioMin) return;
+        const tau = EX.delaiS * 1000 * Math.max(0.3, 1 / ratio) ** 3;
+        if (rng() >= 1 - Math.exp(-dt / tau)) return;
+        t.statut = "acceptee"; t.closed = now; t.joueur = bidder(rng);
+        const c = bySlug[t.veut.slug], g = give(S, [{ c, isNew: !S.owned[c.slug], holo: t.veut.holo }], false, rng);
+        bump(S, "echanges");
+        log(S, "echange", 0, `Échange avec ${t.joueur} : ${t.donne.map((x) => bySlug[x.slug].nom).join(", ")} contre ${c.nom}`, now);
+        events.push({ type: "echange-accepte", t, eclats: g.eclats });
+      });
+      S.echangesRecus = S.echangesRecus.filter((r) => r.fin > now && owns(S, r.veut) > 0);
+      if (S.echangesRecus.length < EX.recus && rng() < 1 - Math.exp(-dt / (3 * 60e3))) {
+        const r = fakeTradeOffer(S, now, rng);
+        if (r) { S.echangesRecus.push(r); events.push({ type: "echange-recu", r }); }
+      }
+      return events;
+    }
+
     /* ---------- liste de souhaits, vitrine, valeur de la collection ---------- */
     const toggleWish = (S, slug) => { if (S.souhaits[slug]) delete S.souhaits[slug]; else S.souhaits[slug] = true; return !!S.souhaits[slug]; };
     function toggleShowcase(S, slug) {
@@ -718,7 +818,7 @@
         S.offresRecues.push(o);
         events.push({ type: "offre-recue", o });
       }
-      return events;
+      return events.concat(tickTrades(S, now, dt, rng));
     }
 
     return {
@@ -730,6 +830,7 @@
       refPrice, quickSellValue, quickSell, duplicatesValue, quickSellDuplicates,
       netOf, activeListings, canSell, listCard, cancelListing, buyListing, tickMarket, marketValue,
       minBid, createAuction, bid, postOffer, cancelOffer, acceptOffer, toggleWish, toggleShowcase, collectionValue,
+      tradeValue, proposeTrade, cancelTrade, acceptTrade, declineTrade,
     };
   }
 

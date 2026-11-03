@@ -962,3 +962,30 @@ form.bid input { width: 92px; background: var(--bg); border: var(--bw) solid var
 @media (max-width: 640px) {
   .vitrine-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* ---------- échanges ---------- */
+.trades { display: grid; gap: 10px; }
+.trade-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-md, 12px); }
+.trade-row.done { opacity: .6; }
+.trade-row .label { margin: 0 0 6px; }
+.trade-cards { display: grid; gap: 4px; margin-bottom: 4px; }
+.trade-cards .br-card { width: 100%; }
+.trade-arrow { font-size: 1.4rem; color: var(--accent); }
+.trade-act { display: grid; gap: 6px; justify-items: end; text-align: right; }
+.trade-form .trade-top { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: start; margin: 12px 0; }
+.trade-meter { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; margin: 4px 0 12px; font-size: .86rem; }
+.trade-meter .meter { position: relative; display: block; height: 8px; border-radius: 99px; background: var(--surface-2); overflow: visible; }
+.trade-meter .meter i { display: block; height: 100%; border-radius: inherit; background: var(--muted); transition: width .25s; }
+.trade-meter .meter b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); opacity: .5; }
+.trade-meter.low .meter i { background: #ef4444; }
+.trade-meter.mid .meter i { background: #f59e0b; }
+.trade-meter.ok .meter i { background: #22c55e; }
+.trade-meter.high .meter i { background: var(--accent); }
+.tr-chosen { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+@media (max-width: 720px) {
+  .trade-row { grid-template-columns: 1fr; }
+  .trade-arrow { transform: rotate(90deg); justify-self: center; }
+  .trade-act { grid-auto-flow: column; justify-content: start; align-items: center; }
+  .trade-form .trade-top { grid-template-columns: 1fr; }
+  .trade-meter { grid-template-columns: 1fr; }
+}

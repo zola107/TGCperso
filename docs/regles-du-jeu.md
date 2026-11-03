@@ -187,6 +187,15 @@ L'objectif final : **un marché où les cartes prennent de la valeur parce qu'el
 - Le propriétaire voit les **offres reçues** sur ses cartes et peut accepter en un clic (il reçoit le prix − 10 %).
 - 10 offres en cours au maximum par joueur.
 
+### Échanges carte contre carte
+
+- Un joueur choisit la carte qu'il veut et offre **jusqu'à 3 de ses cartes** en échange : **pas de coins, pas de commission**. Ouvert à tous les rangs.
+- Les cartes offertes sont **mises de côté** pendant 24 h ; elles reviennent si personne n'accepte ou si la proposition est annulée. 5 propositions en cours au maximum.
+- Un indicateur montre si l'échange est équilibré (valeur de marché des cartes offertes / carte voulue). En dessous de **0,8**, personne n'accepte ; plus c'est généreux, plus c'est rapide.
+- Le joueur reçoit aussi des **propositions d'échange** sur ses cartes (souvent des cartes qui lui manquent), à accepter ou refuser.
+- La règle des 5 exemplaires s'applique : une copie en trop reçue par échange devient des éclats.
+- Nouveaux défis : « Conclure un échange » (quotidien) et « Conclure 3 échanges » (hebdomadaire).
+
 ### Liste de souhaits et vitrine
 
 - **Liste de souhaits** : un cœur sur la fiche d'un perso ; le joueur est prévenu dès qu'il apparaît en vente ou aux enchères, et peut filtrer le marché sur sa liste.
@@ -194,7 +203,7 @@ L'objectif final : **un marché où les cartes prennent de la valeur parce qu'el
 
 ### Règles anti-abus (vraie version)
 
-Transaction atomique côté serveur, impossible d'acheter sa propre annonce ni d'enchérir sur sa propre enchère, **20 annonces actives** max, rang **Argent** minimum pour vendre, compte de plus de 3 jours, journal de toutes les transactions.
+Transaction atomique côté serveur, impossible d'acheter sa propre annonce ni d'enchérir sur sa propre enchère, échange validé en une seule transaction des deux côtés, **20 annonces actives** max, rang **Argent** minimum pour vendre, compte de plus de 3 jours, journal de toutes les transactions.
 
 Dans le prototype, sans serveur, les autres vendeurs et acheteurs sont simulés.
 

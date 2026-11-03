@@ -421,7 +421,8 @@
           <button class="btn ghost sm" data-wish="${c.slug}">${S.souhaits[c.slug] ? "♥ Dans ma liste de souhaits" : "♡ Ajouter à ma liste de souhaits"}</button>
           ${qty ? `<button class="btn ghost sm" data-auction="${c.slug}">Mettre aux enchères</button>
             <button class="btn ghost sm" data-showcase="${c.slug}">${S.vitrine.includes(c.slug) ? "Retirer de la vitrine" : "Mettre en vitrine"}</button>` : ""}
-          ${plain < CONFIG.maxExemplaires ? `<button class="btn ghost sm" data-offer="${c.slug}">Faire une offre d'achat</button>` : ""}
+          ${plain < CONFIG.maxExemplaires ? `<button class="btn ghost sm" data-offer="${c.slug}">Faire une offre d'achat</button>
+            <button class="btn ghost sm" data-trade-want="${c.slug}">Proposer un échange</button>` : ""}
         </div>
         ${same.length ? `<p class="label">Même franchise</p><div class="chips">${same.map((x) => `<button data-open="${x.slug}">${gem(x.rarete)}${x.nom}</button>`).join("")}</div>` : ""}
       </div>`, "sheet-char");
@@ -853,11 +854,11 @@
   let mTab = "acheter";
   const MF = { r: "", f: "", max: "", miss: false, wish: false, tri: "prix" };
   function renderMarket() {
-    const tabs = [["acheter", "Acheter"], ["encheres", "Enchères"], ["offres", `Offres${S.offresRecues.length ? ` (${S.offresRecues.length})` : ""}`], ["ventes", "Mes ventes"], ["prix", "Prix de référence"]];
+    const tabs = [["acheter", "Acheter"], ["encheres", "Enchères"], ["offres", `Offres${S.offresRecues.length ? ` (${S.offresRecues.length})` : ""}`], ["echanges", `Échanges${S.echangesRecus.length ? ` (${S.echangesRecus.length})` : ""}`], ["ventes", "Mes ventes"], ["prix", "Prix de référence"]];
     $("#marche").innerHTML = head(5, "Marché", "Échanges", `<span class="muted small">Commission ${pct(M.commission * 100)} · annonces ${M.dureeH} h · <em>vendeurs simulés (prototype)</em></span>`) + `
       <div class="tabs" role="tablist">${tabs.map(([id, l]) => `<button role="tab" aria-selected="${mTab === id}" class="${mTab === id ? "on" : ""}" data-tab="${id}">${l}</button>`).join("")}</div>
       <div id="m-body"></div>`;
-    ({ acheter: renderBuy, encheres: renderAuctions, offres: renderOffers, ventes: renderMySales, prix: renderRefPrices })[mTab]();
+    ({ acheter: renderBuy, encheres: renderAuctions, offres: renderOffers, echanges: renderTrades, ventes: renderMySales, prix: renderRefPrices })[mTab]();
   }
   function renderBuy() {
     $("#m-body").innerHTML = `
@@ -962,9 +963,10 @@
       </div>`; }).join("")}</div>` : `<p class="empty-note">Aucune offre d'achat.</p>`}`;
   }
 
-  // choisir une carte du catalogue (offre d'achat)
-  function pickCatalog() {
-    showModal(`<div><p class="kicker">Offre d'achat</p><h2>Quelle carte voulez-vous ?</h2>
+  // choisir une carte du catalogue (offre d'achat ou échange)
+  function pickCatalog(mode = "offer") {
+    const attr = mode === "trade" ? "data-trade-want" : "data-offer";
+    showModal(`<div><p class="kicker">${mode === "trade" ? "Échange" : "Offre d'achat"}</p><h2>Quelle carte voulez-vous ?</h2>
       <div class="toolbar"><input id="pc-q" type="search" placeholder="Nom ou franchise…" autofocus>
         <label class="check"><input id="pc-wish" type="checkbox" ${Object.keys(S.souhaits).length ? "checked" : ""}> ♥ Ma liste</label></div>
       <div class="book" id="pc-list"></div></div>`, "wide");
@@ -972,10 +974,94 @@
       const q = $("#pc-q").value.trim().toLowerCase(), wish = $("#pc-wish").checked;
       const list = G.chars.filter((c) => (!wish || S.souhaits[c.slug]) && (!q || (c.nom + " " + c.franchise).toLowerCase().includes(q))).slice(0, 40);
       $("#pc-list").innerHTML = list.map((c) => `<div class="book-row mine">${cardCell(c)}<b class="mono">${coin(G.marketValue(S, c.slug))}</b><span class="muted small">valeur de marché</span><span></span>
-        <button class="btn sm" data-offer="${c.slug}">Choisir</button></div>`).join("") || `<p class="empty-note">Aucune carte.</p>`;
+        <button class="btn sm" ${attr}="${c.slug}">Choisir</button></div>`).join("") || `<p class="empty-note">Aucune carte.</p>`;
     };
     $("#pc-q").addEventListener("input", draw); $("#pc-wish").addEventListener("input", draw); draw();
   }
+  /* ---------- échanges carte contre carte ---------- */
+  const EXC = M.echanges;
+  const cardsTxt = (list) => list.map((x) => G.bySlug[x.slug].nom + (x.holo ? " (holo)" : "")).join(", ");
+  const tradeSide = (list) => `<div class="trade-cards">${list.map((x) => cardCell(G.bySlug[x.slug], x.holo)).join("")}</div>`;
+  function renderTrades() {
+    const mine = S.echanges.slice(0, 20);
+    $("#m-body").innerHTML = `
+      <h3 class="sub first">Propositions reçues</h3>
+      ${S.echangesRecus.length ? `<div class="trades">${S.echangesRecus.map((r) => {
+        const give = G.tradeValue(S, r.donne), keep = G.marketValue(S, r.veut.slug, r.veut.holo), d = Math.round((give / keep - 1) * 100);
+        return `<div class="trade-row">
+          <div><p class="label">${r.joueur} vous donne</p>${tradeSide(r.donne)}<small class="muted">valeur ~${num(give)}</small></div>
+          <span class="trade-arrow" aria-hidden="true">⇄</span>
+          <div><p class="label">contre votre</p>${tradeSide([r.veut])}<small class="muted">valeur ~${num(keep)}</small></div>
+          <div class="trade-act">
+            <span class="mono ${d >= 0 ? "up" : "down"}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d)} %</span>
+            <span class="mono muted small">${until(r.fin)}</span>
+            <button class="btn sm" data-accept-trade="${r.id}">Accepter</button>
+            <button class="btn ghost sm" data-decline-trade="${r.id}">Refuser</button>
+          </div>
+        </div>`; }).join("")}</div>` : `<p class="empty-note">Aucune proposition pour l'instant. D'autres joueurs vous proposeront leurs cartes contre les vôtres.</p>`}
+      <div class="sales-head">
+        <h3 class="sub">Mes propositions</h3>
+        <button class="btn" id="new-trade">Proposer un échange</button>
+      </div>
+      <p class="muted small">Choisissez la carte que vous voulez et offrez jusqu'à ${EXC.cartesMax} de vos cartes en échange : pas de coins, pas de commission. Vos cartes sont mises de côté pendant ${EXC.dureeH} h ; un joueur accepte si l'échange est assez intéressant pour lui, sinon elles vous reviennent.</p>
+      ${mine.length ? `<div class="trades">${mine.map((t) => `<div class="trade-row${t.statut === "active" ? "" : " done"}">
+          <div><p class="label">Vous donnez</p>${tradeSide(t.donne)}</div>
+          <span class="trade-arrow" aria-hidden="true">⇄</span>
+          <div><p class="label">contre</p>${tradeSide([t.veut])}</div>
+          <div class="trade-act">
+            ${t.statut === "active" ? `<span class="mono muted small">${until(t.fin)}</span><button class="btn ghost sm" data-cancel-trade="${t.id}">Annuler</button>`
+              : `<span class="muted small">${STATUT[t.statut]}${t.joueur ? ` · ${t.joueur}` : ""}</span>`}
+          </div>
+        </div>`).join("")}</div>` : `<p class="empty-note">Aucune proposition.</p>`}`;
+  }
+
+  // composer un échange : la carte voulue, puis jusqu'à 3 de ses cartes
+  const TR = { want: null, picks: [], q: "" };
+  const pickKey = (x) => x.slug + (x.holo ? "*" : "");
+  function tradeForm(slug) {
+    TR.want = { slug, holo: false }; TR.picks = []; TR.q = "";
+    const c = G.bySlug[slug];
+    showModal(`<div class="trade-form">
+      <p class="kicker">Échange</p><h2>Obtenir ${c.nom}</h2>
+      <div class="trade-top">
+        <div><p class="label">Vous voulez</p>${tradeSide([TR.want])}<small class="muted">valeur ~${num(G.marketValue(S, slug))}</small></div>
+        <span class="trade-arrow" aria-hidden="true">⇄</span>
+        <div id="tr-picks"></div>
+      </div>
+      <div id="tr-meter"></div>
+      <div class="toolbar"><input id="tr-q" type="search" placeholder="Chercher dans vos cartes…" aria-label="Chercher dans vos cartes"></div>
+      <div class="book" id="tr-list"></div>
+    </div>`, "wide");
+    $("#tr-q").addEventListener("input", (e) => { TR.q = e.target.value.trim().toLowerCase(); drawTradeList(); });
+    drawTrade();
+  }
+  function drawTrade() {
+    const want = G.marketValue(S, TR.want.slug), give = G.tradeValue(S, TR.picks), r = give / want;
+    $("#tr-picks").innerHTML = `<p class="label">Vous donnez (${TR.picks.length}/${EXC.cartesMax})</p>${TR.picks.length ? tradeSide(TR.picks) : `<p class="muted small">Ajoutez des cartes ci-dessous.</p>`}<small class="muted">valeur ~${num(give)}</small>`;
+    const [cls, txt] = !TR.picks.length ? ["", "Choisissez vos cartes"] : r < EXC.ratioMin ? ["low", "Trop faible : personne n'acceptera"]
+      : r < 1 ? ["mid", "Un peu juste : ça peut prendre du temps"] : r < 1.3 ? ["ok", "Équilibré : un joueur devrait accepter"] : ["high", "Généreux : accepté très vite"];
+    $("#tr-meter").innerHTML = `<div class="trade-meter ${cls}"><span class="meter"><i style="width:${Math.min(100, (r / 1.5) * 100) || 0}%"></i><b style="left:${(EXC.ratioMin / 1.5) * 100}%"></b></span>
+      <span>${txt}</span><button class="btn" id="tr-send" ${TR.picks.length ? "" : "disabled"}>Proposer l'échange</button></div>`;
+    drawTradeList();
+  }
+  function drawTradeList() {
+    const used = {}; TR.picks.forEach((x) => { used[pickKey(x)] = (used[pickKey(x)] || 0) + 1; });
+    const rows = [];
+    G.chars.forEach((c) => {
+      if (!S.owned[c.slug] || (TR.q && !(c.nom + " " + c.franchise).toLowerCase().includes(TR.q))) return;
+      [false, true].forEach((holo) => {
+        const x = { slug: c.slug, holo }, left = (holo ? G.holoCount(S, c.slug) : G.plainCount(S, c.slug)) - (used[pickKey(x)] || 0);
+        if (left > 0 && !(c.slug === TR.want.slug && !holo)) rows.push({ c, holo, left });
+      });
+    });
+    rows.sort((a, b) => (b.left > 1) - (a.left > 1) || G.rank(b.c.rarete) - G.rank(a.c.rarete));
+    const full = TR.picks.length >= EXC.cartesMax;
+    $("#tr-list").innerHTML = (TR.picks.length ? `<div class="chips tr-chosen">${TR.picks.map((x, i) => `<button class="chip-x" data-tr-del="${i}">✕ ${G.bySlug[x.slug].nom}${x.holo ? " (holo)" : ""}</button>`).join("")}</div>` : "") +
+      (rows.slice(0, 60).map(({ c, holo, left }) => `<div class="book-row mine">${cardCell(c, holo)}<b class="mono">${coin(G.marketValue(S, c.slug, holo))}</b>
+        <span class="muted small">${left > 1 ? `×${left} dont doublons` : "dernier exemplaire"}</span><span></span>
+        <button class="btn sm" data-tr-add="${c.slug}" data-holo="${holo ? 1 : ""}" ${full ? "disabled" : ""}>Ajouter</button></div>`).join("") || `<p class="empty-note">Aucune carte.</p>`);
+  }
+
   function offerForm(slug) {
     const c = G.bySlug[slug], v = G.marketValue(S, slug);
     showModal(`
@@ -1102,9 +1188,12 @@
       "offre-acceptee": (e) => `Offre acceptée : ${nom(e.o.slug)} est à vous`,
       "offre-expiree": (e) => `Offre expirée : ${nom(e.o.slug)} (coins rendus)`,
       "offre-recue": (e) => `${e.o.acheteur} propose ${coin(e.o.prix)} pour votre ${nom(e.o.slug)}`,
+      "echange-accepte": (e) => `Échange accepté par ${e.t.joueur} : ${nom(e.t.veut.slug)} est à vous`,
+      "echange-expire": (e) => `Échange expiré : ${cardsTxt(e.t.donne)} revien${e.t.donne.length > 1 ? "nent" : "t"} dans votre collection`,
+      "echange-recu": (e) => `${e.r.joueur} propose ${cardsTxt(e.r.donne)} contre votre ${nom(e.r.veut.slug)}`,
     };
     events.forEach((e) => MSG[e.type] && toast(MSG[e.type](e)));
-    if (current() === "marche" && ["ventes", "encheres", "offres"].includes(mTab) && $("#modal").hidden) renderMarket();
+    if (current() === "marche" && ["ventes", "encheres", "offres", "echanges"].includes(mTab) && $("#modal").hidden) renderMarket();
     if (current() === "hub" && $("#stage").hidden && $("#modal").hidden && events.some((e) => e.type.startsWith("offre"))) renderHub();
     if (current() === "classeur") renderPages();
   }
@@ -1156,6 +1245,30 @@
     if (at("[data-auction]")) return auctionForm(at("[data-auction]").dataset.auction, !!at("[data-auction]").dataset.holo);
     if (at("#new-auction")) return pickToSell("auction");
     if (at("[data-offer]")) return offerForm(at("[data-offer]").dataset.offer);
+    if (at("[data-trade-want]")) return tradeForm(at("[data-trade-want]").dataset.tradeWant);
+    if (at("#new-trade")) return pickCatalog("trade");
+    if (at("[data-tr-add]")) { const b = at("[data-tr-add]"); if (TR.picks.length < EXC.cartesMax) TR.picks.push({ slug: b.dataset.trAdd, holo: !!b.dataset.holo }); return drawTrade(); }
+    if (at("[data-tr-del]")) { TR.picks.splice(Number(at("[data-tr-del]").dataset.trDel), 1); return drawTrade(); }
+    if (at("#tr-send")) {
+      const res = G.proposeTrade(S, TR.picks, TR.want, now());
+      if (res.error) return toast(res.error);
+      persist(); closeModal(); mTab = "echanges"; if (current() === "marche") renderMarket(); else location.hash = "#marche";
+      return toast(`Proposition envoyée : ${cardsTxt(res.echange.donne)} contre ${G.bySlug[res.echange.veut.slug].nom}`);
+    }
+    if (at("[data-cancel-trade]")) {
+      const res = G.cancelTrade(S, at("[data-cancel-trade]").dataset.cancelTrade, now());
+      if (res.error) return toast(res.error);
+      persist(); renderMarket(); return toast("Proposition annulée : vos cartes reviennent");
+    }
+    if (at("[data-accept-trade]")) {
+      const r = S.echangesRecus.find((x) => x.id === at("[data-accept-trade]").dataset.acceptTrade);
+      if (!r || !confirm(`Donner ${cardsTxt([r.veut])} à ${r.joueur} contre ${cardsTxt(r.donne)} ?`)) return;
+      const res = G.acceptTrade(S, r.id, now());
+      if (res.error) return toast(res.error);
+      persist(); renderMarket();
+      return toast(`Échange conclu : ${res.recues.map((c) => c.nom).join(", ")}${res.eclats ? ` · +${res.eclats} éclats (exemplaires en trop)` : ""}`);
+    }
+    if (at("[data-decline-trade]")) { G.declineTrade(S, at("[data-decline-trade]").dataset.declineTrade); persist(); return renderMarket(); }
     if (at("#new-offer")) return pickCatalog();
     if (at("[data-cancel-offer]")) {
       const res = G.cancelOffer(S, at("[data-cancel-offer]").dataset.cancelOffer, now());

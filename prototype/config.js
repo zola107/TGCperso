@@ -110,6 +110,7 @@ const CONFIG = {
       { id: "j-theme", nom: "Ouvrir un pack thématique", stat: "packsTheme", cible: 1, recompense: { coins: 40, xp: 15 } },
       { id: "j-annonce", nom: "Mettre une carte en vente", stat: "annonces", cible: 1, recompense: { coins: 25, xp: 15 } },
       { id: "j-achat", nom: "Acheter une carte au marché", stat: "achats", cible: 1, recompense: { coins: 20, xp: 15 } },
+      { id: "j-echange", nom: "Conclure un échange", stat: "echanges", cible: 1, recompense: { coins: 30, xp: 20 } },
       { id: "j-nouvelles", nom: "Obtenir 5 nouvelles cartes", stat: "nouvelles", cible: 5, recompense: { coins: 30, xp: 20 } },
       { id: "j-gratuits", nom: "Ouvrir 2 packs gratuits", stat: "packsGratuits", cible: 2, recompense: { coins: 20, xp: 10 } },
       { id: "j-retourner", nom: "Retourner 15 cartes", stat: "cartes", cible: 15, recompense: { coins: 20, xp: 10 } },
@@ -119,6 +120,7 @@ const CONFIG = {
       { id: "s-epique", nom: "Obtenir 2 cartes Épique ou mieux", stat: "epiquePlus", cible: 2, recompense: { coins: 150, xp: 100 } },
       { id: "s-nouvelles", nom: "Obtenir 40 nouvelles cartes", stat: "nouvelles", cible: 40, recompense: { coins: 200, xp: 150 } },
       { id: "s-ventes", nom: "Vendre 3 cartes au marché", stat: "ventes", cible: 3, recompense: { coins: 250, xp: 100 } },
+      { id: "s-echanges", nom: "Conclure 3 échanges", stat: "echanges", cible: 3, recompense: { coins: 200, xp: 120 } },
       { id: "s-franchise", nom: "Compléter une franchise", stat: "franchises", cible: 1, recompense: { bon: "pack-epique", xp: 200 } },
       { id: "s-atelier", nom: "Fabriquer 2 cartes à l'atelier", stat: "fabriques", cible: 2, recompense: { eclats: 150, xp: 80 } },
     ],
@@ -155,6 +157,9 @@ const CONFIG = {
     // Offres d'achat : on bloque les coins ; un vendeur accepte si le prix est assez bon.
     // « recues » : offres que d'autres joueurs font sur vos cartes.
     offres: { dureeH: 72, max: 10, recues: 4, dureeRecueH: 6 },
+    // Échanges carte contre carte : jusqu'à 3 cartes données contre 1 carte voulue, sans coins ni commission.
+    // Un joueur accepte si vos cartes valent au moins « ratioMin » fois la sienne ; plus c'est généreux, plus c'est rapide.
+    echanges: { max: 5, cartesMax: 3, dureeH: 24, delaiS: 60, ratioMin: 0.8, recus: 3, dureeRecuH: 6 },
   },
   // Vitrine de profil : les cartes que le joueur met en avant.
   vitrine: 5,

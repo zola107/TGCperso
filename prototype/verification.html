@@ -294,6 +294,38 @@
         const c0 = S.coins, r = G.acceptOffer(S, o.id, 3600e3);
         return (!r.error && S.owned[PC] === 1 && S.coins - c0 === Math.floor(o.prix * (1 - CONFIG.market.commission))) || (r.error || "montant");
       });
+      const COM = G.chars.filter((c) => c.rarete === "commun").slice(0, 3).map((c) => c.slug);
+      test("Échange : cartes données mises de côté, carte voulue reçue si un joueur accepte", () => {
+        const S = G.newState(0); COM.forEach((x) => (S.owned[x] = 1));
+        const r = G.proposeTrade(S, COM.map((slug) => ({ slug })), { slug: PC }, 0);
+        if (r.error) return r.error;
+        if (COM.some((x) => S.owned[x])) return "cartes non séquestrées";
+        G.tickMarket(S, 60e3, () => 0);
+        return (r.echange.statut === "acceptee" && S.owned[PC] === 1 && S.stats.echanges === 1) || `statut ${r.echange.statut}`;
+      });
+      test("Échange trop déséquilibré : jamais accepté, cartes rendues à l'expiration ou à l'annulation", () => {
+        const S = G.newState(0); S.owned[COM[0]] = 2;
+        const t = G.proposeTrade(S, [{ slug: COM[0] }], { slug: TOP }, 0).echange;
+        G.tickMarket(S, 60e3, () => 0);
+        if (t.statut !== "active") return "accepté alors qu'il est trop faible";
+        G.tickMarket(S, CONFIG.market.echanges.dureeH * 3600e3 + 1, () => 0.999);
+        if (t.statut !== "expiree" || S.owned[COM[0]] !== 2) return "carte non rendue à l'expiration";
+        const t2 = G.proposeTrade(S, [{ slug: COM[0] }, { slug: COM[0] }], { slug: TOP }, 0).echange;
+        if (S.owned[COM[0]]) return "doublons non séquestrés";
+        G.cancelTrade(S, t2.id, 0);
+        if (S.owned[COM[0]] !== 2) return "cartes non rendues à l'annulation";
+        return !!G.proposeTrade(S, [{ slug: COM[0] }, { slug: COM[0] }, { slug: COM[0] }], { slug: TOP }, 0).error || "a pu donner une carte qu'il n'a pas";
+      });
+      test("Échange reçu : l'accepter donne votre carte et ajoute les siennes", () => {
+        const S = G.newState(0); S.owned[PC] = 2;
+        for (let i = 1; i < 200 && !S.echangesRecus.length; i++) G.tickMarket(S, i * 600e3, rng);
+        const r = S.echangesRecus[0];
+        if (!r) return "aucune proposition reçue";
+        const v = G.tradeValue(S, r.donne) / G.marketValue(S, r.veut.slug, r.veut.holo);
+        if (v < 0.85 || v > 1.5) return `proposition déséquilibrée (${v.toFixed(2)})`;
+        const before = (S.owned[r.veut.slug] || 0), res = G.acceptTrade(S, r.id, r.cree);
+        return (!res.error && (S.owned[r.veut.slug] || 0) === before - 1 && r.donne.every((x) => S.owned[x.slug])) || (res.error || "cartes non transférées");
+      });
       test(`Liste de souhaits et vitrine (${CONFIG.vitrine} cartes max, possédées seulement)`, () => {
         const S = G.newState(0);
         if (!G.toggleWish(S, PC) || G.toggleWish(S, PC)) return "liste de souhaits";
