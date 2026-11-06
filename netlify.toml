@@ -1,0 +1,4 @@
+# Netlify publie le prototype (site statique, aucune compilation).
+[build]
+  publish = "prototype"
+  command = ""
